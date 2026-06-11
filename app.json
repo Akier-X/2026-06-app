@@ -45,8 +45,7 @@
       ]
     ],
     "experiments": {
-      "typedRoutes": false,
-      "reactCompiler": true
+      "typedRoutes": false
     }
   }
 }
