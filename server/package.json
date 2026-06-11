@@ -1,0 +1,13 @@
+{
+  "name": "kokoro-coach-server",
+  "version": "1.0.0",
+  "main": "index.mjs",
+  "scripts": {
+    "start": "node index.mjs"
+  },
+  "type": "module",
+  "private": true,
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1"
+  }
+}
