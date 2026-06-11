@@ -4,13 +4,10 @@ import { useState } from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { Card, SectionTitle } from '@/components/ui';
+import { PRIVACY_URL, TERMS_URL } from '@/constants/legal';
 import { Spacing, useThemeColors } from '@/constants/theme';
 import { restorePurchases } from '@/lib/purchases';
 import { useAppStore } from '@/store/useAppStore';
-
-// TODO: 公開前に必ず実URLへ差し替える(App Store審査で必須)
-const TERMS_URL = 'https://example.com/kokoro-coach/terms';
-const PRIVACY_URL = 'https://example.com/kokoro-coach/privacy';
 
 export default function SettingsScreen() {
   const c = useThemeColors();

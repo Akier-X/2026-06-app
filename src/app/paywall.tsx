@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 
 import { PrimaryButton } from '@/components/ui';
+import { PRIVACY_URL, TERMS_URL } from '@/constants/legal';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import {
   fetchPlans,
@@ -19,9 +20,6 @@ import {
   type PlanOption,
 } from '@/lib/purchases';
 import { useAppStore } from '@/store/useAppStore';
-
-const TERMS_URL = 'https://example.com/kokoro-coach/terms';
-const PRIVACY_URL = 'https://example.com/kokoro-coach/privacy';
 
 const FEATURES = [
   { emoji: '♾️', text: '習慣を無制限に登録' },

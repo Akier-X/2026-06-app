@@ -33,8 +33,13 @@ src/
     purchases.ts      # RevenueCatラッパー (Expo Goではモック動作)
     dates.ts          # 日付・ストリーク計算
   store/useAppStore.ts # 永続化ストア (Zustand + AsyncStorage)
-server/               # AIコーチ用プロキシ (Node + Anthropic SDK)
-docs/                 # リリース手順・収益化戦略
+server/               # AIコーチ用プロキシ (Node + Anthropic SDK, Dockerfile付き)
+docs/
+  app-store-release.md # リリース実務手順
+  monetization.md      # 収益化戦略
+  store-listing.md     # App Store掲載文ドラフト(コピペ用)
+  legal/               # 利用規約・プライバシーポリシー (GitHub Pagesで公開)
+eas.json              # EASビルド設定 (dev / preview / production)
 ```
 
 ## 開発の始め方
@@ -72,11 +77,11 @@ EXPO_PUBLIC_RC_IOS_KEY=appl_xxxx eas build --profile development --platform ios
 ## リリースまでのロードマップ
 
 1. **動作確認** — Expo Goでオンボーディング → 習慣登録 → チェックイン → ペイウォールの流れを確認
-2. **サーバーをデプロイ** — `server/` を Railway / Render / Fly.io 等へ(`ANTHROPIC_API_KEY` を設定)
-3. **App Store Connect でサブスク商品を作成** — `docs/app-store-release.md` の手順どおり
-4. **RevenueCat を設定** — Entitlement `premium` / Offering に monthly & annual を登録
-5. **利用規約・プライバシーポリシーを公開** — `src/app/paywall.tsx` と `settings.tsx` のURLを差し替え
-6. **EAS Build → TestFlight → 審査提出**
+2. **法務ページを公開** — GitHub Pages (Settings → Pages → `main` / `/docs`) を有効化するだけ。URLは `src/constants/legal.ts` に設定済み
+3. **サーバーをデプロイ** — `server/`(Dockerfile付き)を Railway / Render / Fly.io 等へ(`ANTHROPIC_API_KEY` を設定)
+4. **App Store Connect でサブスク商品を作成** — `docs/app-store-release.md` の手順どおり
+5. **RevenueCat を設定** — Entitlement `premium` / Offering に monthly & annual を登録
+6. **EAS Build → TestFlight → 審査提出** — `eas.json` 設定済み。掲載文は `docs/store-listing.md` からコピペ
 
 ## 注意事項(App Store審査)
 

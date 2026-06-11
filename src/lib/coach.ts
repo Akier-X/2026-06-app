@@ -10,6 +10,8 @@ import type { ChatMessage, CoachContext } from '@/types';
  * When unset, a local demo reply is returned so the app works standalone.
  */
 const COACH_API_URL = process.env.EXPO_PUBLIC_COACH_API_URL ?? '';
+// サーバー側 COACH_APP_TOKEN と同じ値を設定する(簡易的なアプリ専用認証)
+const COACH_APP_TOKEN = process.env.EXPO_PUBLIC_COACH_APP_TOKEN ?? '';
 
 export function buildCoachContext(): CoachContext {
   const s = useAppStore.getState();
@@ -55,7 +57,10 @@ export async function sendToCoach(history: ChatMessage[]): Promise<string> {
   const context = buildCoachContext();
   const res = await fetch(`${COACH_API_URL.replace(/\/$/, '')}/api/coach`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      ...(COACH_APP_TOKEN ? { 'x-app-token': COACH_APP_TOKEN } : {}),
+    },
     body: JSON.stringify({
       messages: history.slice(-20).map((m) => ({ role: m.role, content: m.text })),
       context,

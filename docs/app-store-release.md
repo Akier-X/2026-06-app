@@ -31,12 +31,15 @@
 
 ## 3. 法務ページ(審査必須)
 
-- 利用規約(EULA)とプライバシーポリシーをWebに公開(GitHub Pages / Notion公開ページでも可)
-- 差し替え箇所: `src/app/paywall.tsx` と `src/app/(tabs)/settings.tsx` の `TERMS_URL` / `PRIVACY_URL`
-- App Store Connect の「Appのプライバシー」でデータ収集を申告
-  - チャット内容を外部サーバー(自前プロキシ→Anthropic)へ送信するため「ユーザーコンテンツ」の申告が必要
+利用規約・プライバシーポリシーは **`docs/legal/terms.html` / `docs/legal/privacy.html` に作成済み**。
+
+1. GitHubリポジトリの Settings → Pages → Source を「Deploy from a branch」/ ブランチ `main`・フォルダ `/docs` に設定
+2. 公開URL(`https://akier-x.github.io/2026-06-app/legal/terms.html` 等)が `src/constants/legal.ts` に設定済み。リポジトリ名やドメインを変える場合はここを更新
+3. App Store Connect の「Appのプライバシー」でデータ収集を申告(申告内容のドラフトは `docs/store-listing.md` 参照)
 
 ## 4. サーバーのデプロイ
+
+`server/Dockerfile` 作成済み。Dockerが動くホスティング(Railway / Render / Fly.io等)にそのままデプロイできる。
 
 ```bash
 # 例: Railway
@@ -45,22 +48,25 @@ railway variables set ANTHROPIC_API_KEY=sk-ant-... COACH_APP_TOKEN=<ランダム
 ```
 
 - 取得したURLをビルド時に `EXPO_PUBLIC_COACH_API_URL` として注入
-- 本番では `COACH_APP_TOKEN` を設定し、`src/lib/coach.ts` のfetchにヘッダーを追加することを推奨
+- `COACH_APP_TOKEN` はアプリ側 `EXPO_PUBLIC_COACH_APP_TOKEN` に同じ値を設定(クライアント実装済み)
 - Anthropicの利用料が原価になるため、無料ユーザーの回数制限(実装済み: 5通/日)は必ず維持する
 
 ## 5. ビルドと提出
 
-```bash
-# eas.json を生成
-eas build:configure
+`eas.json` は作成済み(development / preview / production の3プロファイル)。
 
-# 環境変数を EAS に登録
-eas env:create --name EXPO_PUBLIC_RC_IOS_KEY --value appl_xxxx
-eas env:create --name EXPO_PUBLIC_COACH_API_URL --value https://your-server.example.com
+```bash
+# EASプロジェクトを紐付け (app.jsonにprojectIdが書き込まれる)
+eas init
+
+# 環境変数を EAS に登録 (production環境)
+eas env:create --environment production --name EXPO_PUBLIC_RC_IOS_KEY --value appl_xxxx
+eas env:create --environment production --name EXPO_PUBLIC_COACH_API_URL --value https://your-server.example.com
+eas env:create --environment production --name EXPO_PUBLIC_COACH_APP_TOKEN --value <サーバーと同じ値>
 
 # 本番ビルド & 提出
 eas build --platform ios --profile production
-eas submit --platform ios
+eas submit --platform ios   # eas.json の ascAppId を事前に設定
 ```
 
 TestFlightで以下を必ず確認:

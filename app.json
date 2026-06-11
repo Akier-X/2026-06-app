@@ -11,8 +11,10 @@
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.akierx.kokorocoach",
       "supportsTablet": false,
+      "buildNumber": "1",
       "infoPlist": {
-        "CFBundleAllowMixedLocalizations": true
+        "CFBundleAllowMixedLocalizations": true,
+        "ITSAppUsesNonExemptEncryption": false
       }
     },
     "android": {
