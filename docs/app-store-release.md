@@ -37,19 +37,25 @@
 2. 公開URL(`https://akier-x.github.io/2026-06-app/legal/terms.html` 等)が `src/constants/legal.ts` に設定済み。リポジトリ名やドメインを変える場合はここを更新
 3. App Store Connect の「Appのプライバシー」でデータ収集を申告(申告内容のドラフトは `docs/store-listing.md` 参照)
 
-## 4. サーバーのデプロイ
+## 4. サーバーのデプロイ(任意・フィードバック収集に推奨)
+
+**AIコーチはデフォルトでローカルエンジンのためサーバーなしでもリリース可能。**
+サーバーはユーザーフィードバックの収集先として推奨(未設定時はメール送信にフォールバック)。
 
 `server/Dockerfile` 作成済み。Dockerが動くホスティング(Railway / Render / Fly.io等)にそのままデプロイできる。
 
 ```bash
 # 例: Railway
 railway init && railway up
-railway variables set ANTHROPIC_API_KEY=sk-ant-... COACH_APP_TOKEN=<ランダム文字列>
+railway variables set COACH_APP_TOKEN=<ランダム文字列> ADMIN_TOKEN=<別のランダム文字列>
+# Claude接続を使う場合のみ: railway variables set ANTHROPIC_API_KEY=sk-ant-...
 ```
 
 - 取得したURLをビルド時に `EXPO_PUBLIC_COACH_API_URL` として注入
 - `COACH_APP_TOKEN` はアプリ側 `EXPO_PUBLIC_COACH_APP_TOKEN` に同じ値を設定(クライアント実装済み)
-- Anthropicの利用料が原価になるため、無料ユーザーの回数制限(実装済み: 5通/日)は必ず維持する
+- フィードバックは `data/feedback.jsonl` に保存されるため、永続ボリュームを割り当てる
+- 取得は `node scripts/fetch-feedback.mjs`(`ADMIN_TOKEN` 使用)。分析手順は `CLAUDE.md` 参照
+- Claude接続を有効化する場合のみAPI原価が発生。無料ユーザーの回数制限(5通/日)は必ず維持する
 
 ## 5. ビルドと提出
 
@@ -73,15 +79,15 @@ TestFlightで以下を必ず確認:
 
 - [ ] サンドボックスアカウントで月額/年額の購入が完了し、プレミアムが解放される
 - [ ] 「購入を復元」が機能する
-- [ ] AIコーチが応答する(本番サーバー経由)
-- [ ] 機内モードでもクラッシュしない(チャットはエラーメッセージ表示)
+- [ ] AIコーチが応答する(ローカルエンジン: 機内モードでも動作するはず)
+- [ ] 「ご意見・お問い合わせ」の送信が成功する(サーバー設定時)/ メールが開く(未設定時)
 
 ## 6. 審査チェックリスト(リジェクト頻出ポイント)
 
 - [ ] ペイウォールに自動更新条件・価格・期間を明記(実装済み)
 - [ ] 利用規約 / プライバシーポリシーのリンクがペイウォールにある(実装済み、URL差し替え必須)
 - [ ] 復元ボタンがある(実装済み)
-- [ ] AI生成コンテンツについて: 不適切な内容を返さない仕組み(システムプロンプト + Anthropicのセーフティ)を審査メモに記載
+- [ ] コーチ応答について: 端末内ルールベースエンジンで生成され外部送信なし・危機的な入力には相談窓口を案内する旨を審査メモに記載(文面は `docs/store-listing.md`)
 - [ ] 医療アプリではないこと(診断・治療をしない)を審査メモに明記
 - [ ] デモアカウント不要(ログインなし設計)である旨を審査メモに記載
 

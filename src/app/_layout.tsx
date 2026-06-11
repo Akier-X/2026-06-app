@@ -35,6 +35,10 @@ export default function RootLayout() {
           name="add-habit"
           options={{ presentation: 'modal', title: '習慣を追加' }}
         />
+        <Stack.Screen
+          name="feedback"
+          options={{ presentation: 'modal', title: 'ご意見・お問い合わせ' }}
+        />
       </Stack>
     </ThemeProvider>
   );

@@ -3,7 +3,7 @@
 AI習慣化・セルフケアコーチアプリ。サブスクリプション(月額/年額)で収益化する iOS アプリです。
 
 - **技術スタック**: Expo (React Native + TypeScript) / Expo Router / Zustand / RevenueCat
-- **AIコーチ**: Claude (Anthropic API) — `server/` のプロキシ経由で安全に利用
+- **AIコーチ**: デフォルトは**APIキー不要のローカルエンジン**(端末内で完結・通信費ゼロ)。任意で `server/` 経由のClaude接続にアップグレード可能
 - **市場**: 日本市場ファースト(UIは日本語)
 
 ## 機能
@@ -46,22 +46,35 @@ eas.json              # EASビルド設定 (dev / preview / production)
 
 ```bash
 npm install
-npx expo start        # Expo Goで起動 (課金はモック、AIコーチはデモ応答)
+npx expo start        # Expo Goで起動 (課金はモック)
 ```
 
-### AIコーチを本物のClaudeに接続する
+### AIコーチについて
+
+デフォルトでは `src/lib/localCoach.ts` の**ローカルエンジン**が応答します。
+
+- 運営者・ユーザーともにAPIキー不要、API利用料ゼロ、オフライン動作
+- 意図判定(やる気/続かない/不安/睡眠 など)+ ユーザーの記録(未達成の習慣・ストリーク・気分)を組み合わせた文脈応答
+- 深刻な不調を示す入力には相談窓口を案内(審査対策にもなる安全設計)
+
+将来Claudeベースに切り替えたい場合のみ、`server/` をデプロイして
+`EXPO_PUBLIC_COACH_API_URL` を設定する(完全に任意)。
+
+### フィードバック収集サーバー(任意・推奨)
+
+アプリ内「設定 → ご意見・お問い合わせ」の送信先。未設定の場合はメール送信にフォールバックします。
 
 ```bash
 cd server
-cp .env.example .env  # ANTHROPIC_API_KEY を設定
-npm install
-npm start             # http://localhost:8787
+cp .env.example .env  # COACH_APP_TOKEN / ADMIN_TOKEN を設定
+npm install && npm start   # http://localhost:8787
 ```
 
-アプリ側で接続先を指定:
+蓄積したフィードバックは次回アップデートの計画に使えます:
 
 ```bash
-EXPO_PUBLIC_COACH_API_URL=http://<あなたのIP>:8787 npx expo start
+COACH_API_URL=https://... ADMIN_TOKEN=xxx node scripts/fetch-feedback.mjs
+# → feedback-export/feedback.jsonl + summary.md (Claude Codeで分析する手順は CLAUDE.md 参照)
 ```
 
 ### サブスクリプション(RevenueCat)

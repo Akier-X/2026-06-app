@@ -44,3 +44,7 @@ example
 
 # secrets
 .env
+
+# user feedback exports (may contain personal data)
+feedback-export/
+server/data/

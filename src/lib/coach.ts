@@ -1,13 +1,16 @@
 import { lastNDateKeys, todayKey } from '@/lib/dates';
+import { generateLocalCoachReply } from '@/lib/localCoach';
 import { useAppStore } from '@/store/useAppStore';
 import type { ChatMessage, CoachContext } from '@/types';
 
 /**
- * AI coach client. Talks to the proxy server in `server/` (which holds the
- * Anthropic API key — never ship the key inside the app).
+ * AIコーチクライアント
  *
- * Set EXPO_PUBLIC_COACH_API_URL (e.g. https://your-server.example.com).
- * When unset, a local demo reply is returned so the app works standalone.
+ * デフォルトは **APIキー不要のローカルエンジン**(src/lib/localCoach.ts)。
+ * 運営者のAPIキーもユーザーのAPIキーも不要で、通信費ゼロ・オフラインで動作する。
+ *
+ * 将来Claudeベースのコーチに切り替えたい場合のみ、`server/` をデプロイして
+ * EXPO_PUBLIC_COACH_API_URL を設定する(任意のオプション)。
  */
 const COACH_API_URL = process.env.EXPO_PUBLIC_COACH_API_URL ?? '';
 // サーバー側 COACH_APP_TOKEN と同じ値を設定する(簡易的なアプリ専用認証)
@@ -41,17 +44,12 @@ export function buildCoachContext(): CoachContext {
   };
 }
 
-const DEMO_REPLIES = [
-  'いいですね!まずは小さな一歩から始めましょう。今日の習慣をひとつだけ、5分でいいので試してみませんか?🌱',
-  '焦らなくて大丈夫です。続けられた日に注目してみましょう。昨日より少しでも前に進めていれば十分です。',
-  'その気持ち、よくわかります。完璧を目指すより「やめないこと」を目標にしてみましょう。応援しています!',
-];
-
 export async function sendToCoach(history: ChatMessage[]): Promise<string> {
   if (!COACH_API_URL) {
-    // Demo mode: no server configured.
-    await new Promise((r) => setTimeout(r, 600));
-    return DEMO_REPLIES[history.length % DEMO_REPLIES.length];
+    // デフォルト: ローカルエンジン(API不使用)
+    const lastUserMessage = [...history].reverse().find((m) => m.role === 'user');
+    await new Promise((r) => setTimeout(r, 400)); // 考えている間(うちあわせ感)
+    return generateLocalCoachReply(lastUserMessage?.text ?? '');
   }
 
   const context = buildCoachContext();

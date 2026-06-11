@@ -86,6 +86,11 @@ export default function SettingsScreen() {
       />
 
       <SectionTitle>このアプリについて</SectionTitle>
+      <Row
+        icon="mail-outline"
+        label="ご意見・お問い合わせ"
+        onPress={() => router.push('/feedback')}
+      />
       <Row icon="document-text-outline" label="利用規約" onPress={() => Linking.openURL(TERMS_URL)} />
       <Row
         icon="shield-checkmark-outline"
