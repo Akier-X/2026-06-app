@@ -4,6 +4,7 @@ export interface Habit {
   emoji: string;
   createdAt: string; // ISO date
   reminderTime?: string; // HH:MM format, undefined = no reminder
+  archived?: boolean; // true = hidden from today tab
 }
 
 export interface ChatMessage {
@@ -20,6 +21,8 @@ export interface UserProfile {
   goal: string;
   onboardingDone: boolean;
   moodReminderTime?: string; // HH:MM, undefined = disabled
+  weeklyNotificationEnabled?: boolean;
+  weeklyNotificationTime?: string; // HH:MM, Sunday notification time
 }
 
 export interface CoachContext {

@@ -5,8 +5,14 @@ import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 're
 
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
-import { cancelMoodReminder, scheduleMoodReminder } from '@/lib/notifications';
+import {
+  cancelMoodReminder,
+  cancelWeeklyNotification,
+  scheduleMoodReminder,
+  scheduleWeeklyReportNotification,
+} from '@/lib/notifications';
 import { restorePurchases } from '@/lib/purchases';
+import { generateWeeklyReport } from '@/lib/weeklyReport';
 import { useAppStore } from '@/store/useAppStore';
 
 function TimePicker({
@@ -61,11 +67,17 @@ export default function SettingsScreen() {
   const setPremium = useAppStore((s) => s.setPremium);
   const resetAll = useAppStore((s) => s.resetAll);
   const profile = useAppStore((s) => s.profile);
+  const habits = useAppStore((s) => s.habits);
+  const completions = useAppStore((s) => s.completions);
+  const moods = useAppStore((s) => s.moods);
   const storeMoodReminderTime = useAppStore((s) => s.setMoodReminderTime);
+  const storeWeeklyNotification = useAppStore((s) => s.setWeeklyNotification);
 
   const [restoring, setRestoring] = useState(false);
   const [moodReminderEnabled, setMoodReminderEnabled] = useState(!!profile.moodReminderTime);
   const [moodReminderTime, setMoodReminderTime] = useState(profile.moodReminderTime ?? '20:00');
+  const [weeklyEnabled, setWeeklyEnabled] = useState(!!profile.weeklyNotificationEnabled);
+  const [weeklyTime, setWeeklyTime] = useState(profile.weeklyNotificationTime ?? '09:00');
 
   const onRestore = async () => {
     setRestoring(true);
@@ -108,6 +120,31 @@ export default function SettingsScreen() {
       await scheduleMoodReminder(time).catch(() => {});
       storeMoodReminderTime(time);
     }
+  };
+
+  const scheduleWeekly = async (enabled: boolean, time: string) => {
+    if (enabled) {
+      const report = generateWeeklyReport(habits, completions, moods);
+      await scheduleWeeklyReportNotification({
+        rate: report.weeklyRate,
+        bestHabitName: report.bestHabit?.habitName,
+        time,
+      }).catch(() => {});
+    } else {
+      await cancelWeeklyNotification().catch(() => {});
+    }
+  };
+
+  const onToggleWeekly = async (enabled: boolean) => {
+    setWeeklyEnabled(enabled);
+    storeWeeklyNotification(enabled, weeklyTime);
+    await scheduleWeekly(enabled, weeklyTime);
+  };
+
+  const onWeeklyTimeChange = async (time: string) => {
+    setWeeklyTime(time);
+    storeWeeklyNotification(weeklyEnabled, time);
+    if (weeklyEnabled) await scheduleWeekly(true, time);
   };
 
   const Row = ({
@@ -183,9 +220,48 @@ export default function SettingsScreen() {
           </View>
         )}
       </Card>
+
+      <Card style={[styles.notifSection, { marginTop: Spacing.sm }]}>
+        <View style={styles.notifRow}>
+          <View style={styles.notifLabel}>
+            <Text style={styles.notifEmoji}>📊</Text>
+            <View>
+              <Text style={[styles.notifTitle, { color: c.text }]}>週次レポート通知</Text>
+              <Text style={[styles.notifSub, { color: c.textSecondary }]}>
+                毎週日曜日に週の振り返りをお届け
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={weeklyEnabled}
+            onValueChange={onToggleWeekly}
+            trackColor={{ false: c.border, true: c.primarySoft }}
+            thumbColor={weeklyEnabled ? c.primary : c.textSecondary}
+          />
+        </View>
+        {weeklyEnabled && (
+          <View style={[styles.timePickerContainer, { borderTopColor: c.border }]}>
+            <Text style={[styles.timePickerLabel, { color: c.textSecondary }]}>通知時刻（日曜）</Text>
+            <TimePicker value={weeklyTime} onChange={onWeeklyTimeChange} />
+          </View>
+        )}
+      </Card>
+
       <Text style={[styles.notifHint, { color: c.textSecondary }]}>
         習慣ごとのリマインダーは、習慣カードを長押しして設定できます
       </Text>
+
+      <SectionTitle>きろく</SectionTitle>
+      <Row
+        icon="sparkles-outline"
+        label={`${new Date().getFullYear()}年の年間レポート`}
+        onPress={() => router.push('/annual-report')}
+      />
+      <Row
+        icon="archive-outline"
+        label="アーカイブ済み習慣"
+        onPress={() => router.push('/archived-habits')}
+      />
 
       <SectionTitle>このアプリについて</SectionTitle>
       <Row

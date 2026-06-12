@@ -35,6 +35,7 @@ export default function TodayScreen() {
   const today = todayKey();
   const doneToday = completions[today] ?? [];
   const todayMood = moods[today];
+  const activeHabits = habits.filter((h) => !h.archived);
 
   const checkMilestone = useCallback(
     (habitId: string) => {
@@ -59,7 +60,7 @@ export default function TodayScreen() {
   };
 
   const onAddHabit = () => {
-    if (!isPremium && habits.length >= FREE_HABIT_LIMIT) {
+    if (!isPremium && activeHabits.length >= FREE_HABIT_LIMIT) {
       router.push('/paywall');
     } else {
       router.push('/add-habit');
@@ -102,14 +103,14 @@ export default function TodayScreen() {
       </Card>
 
       <SectionTitle>今日の習慣</SectionTitle>
-      {habits.length === 0 && (
+      {activeHabits.length === 0 && (
         <Card>
           <Text style={{ color: c.textSecondary }}>
             まだ習慣がありません。「+」から最初の習慣を追加しましょう。
           </Text>
         </Card>
       )}
-      {habits.map((h) => {
+      {activeHabits.map((h) => {
         const done = doneToday.includes(h.id);
         const streak = calcStreak((key) => (completions[key] ?? []).includes(h.id));
         return (
@@ -156,7 +157,7 @@ export default function TodayScreen() {
         <Ionicons name="add" size={20} color={c.primary} />
         <Text style={{ color: c.primary, fontWeight: '700' }}>
           習慣を追加
-          {!isPremium ? ` (${habits.length}/${FREE_HABIT_LIMIT})` : ''}
+          {!isPremium ? ` (${activeHabits.length}/${FREE_HABIT_LIMIT})` : ''}
         </Text>
       </Pressable>
     </ScrollView>

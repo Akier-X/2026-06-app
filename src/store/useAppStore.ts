@@ -23,10 +23,13 @@ interface AppState {
   completeOnboarding: (name: string, goal: string) => void;
   addHabit: (name: string, emoji: string) => void;
   removeHabit: (id: string) => void;
+  archiveHabit: (id: string) => void;
+  unarchiveHabit: (id: string) => void;
   toggleCompletion: (habitId: string, key?: string) => void;
   completeHabit: (habitId: string, key?: string) => void;
   updateHabitReminder: (habitId: string, time: string | null) => void;
   setMoodReminderTime: (time: string | null) => void;
+  setWeeklyNotification: (enabled: boolean, time?: string) => void;
   setMood: (mood: MoodValue, key?: string) => void;
   appendChat: (message: ChatMessage) => void;
   /** Returns false when the free-tier daily message quota is exhausted. */
@@ -71,6 +74,16 @@ export const useAppStore = create<AppState>()(
       removeHabit: (id) =>
         set((s) => ({ habits: s.habits.filter((h) => h.id !== id) })),
 
+      archiveHabit: (id) =>
+        set((s) => ({
+          habits: s.habits.map((h) => (h.id === id ? { ...h, archived: true } : h)),
+        })),
+
+      unarchiveHabit: (id) =>
+        set((s) => ({
+          habits: s.habits.map((h) => (h.id === id ? { ...h, archived: false } : h)),
+        })),
+
       toggleCompletion: (habitId, key = todayKey()) =>
         set((s) => {
           const done = s.completions[key] ?? [];
@@ -99,6 +112,15 @@ export const useAppStore = create<AppState>()(
       setMoodReminderTime: (time) =>
         set((s) => ({
           profile: { ...s.profile, moodReminderTime: time ?? undefined },
+        })),
+
+      setWeeklyNotification: (enabled, time) =>
+        set((s) => ({
+          profile: {
+            ...s.profile,
+            weeklyNotificationEnabled: enabled,
+            ...(time !== undefined ? { weeklyNotificationTime: time } : {}),
+          },
         })),
 
       setMood: (mood, key = todayKey()) =>

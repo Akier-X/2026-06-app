@@ -57,6 +57,7 @@ export default function HabitSettingsScreen() {
   const habit = useAppStore((s) => s.habits.find((h) => h.id === habitId));
   const updateHabitReminder = useAppStore((s) => s.updateHabitReminder);
   const removeHabit = useAppStore((s) => s.removeHabit);
+  const archiveHabit = useAppStore((s) => s.archiveHabit);
 
   const [reminderEnabled, setReminderEnabled] = useState(!!habit?.reminderTime);
   const [reminderTime, setReminderTime] = useState(habit?.reminderTime ?? '08:00');
@@ -76,6 +77,23 @@ export default function HabitSettingsScreen() {
       await cancelHabitReminder(habit.id);
     }
     router.back();
+  };
+
+  const onArchive = () => {
+    Alert.alert(
+      `「${habit.name}」をアーカイブ`,
+      '今日タブから非表示になります。設定 → アーカイブ済み習慣 から復元できます。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'アーカイブ',
+          onPress: () => {
+            archiveHabit(habit.id);
+            router.back();
+          },
+        },
+      ],
+    );
   };
 
   const onDelete = () => {
@@ -139,6 +157,12 @@ export default function HabitSettingsScreen() {
 
       <PrimaryButton label="保存する" onPress={onSave} style={styles.saveButton} />
 
+      {/* Archive */}
+      <Pressable onPress={onArchive} style={styles.archiveButton}>
+        <Ionicons name="archive-outline" size={18} color={c.textSecondary} />
+        <Text style={[styles.archiveText, { color: c.textSecondary }]}>この習慣をアーカイブ（非表示に）</Text>
+      </Pressable>
+
       {/* Delete */}
       <Pressable onPress={onDelete} style={styles.deleteButton}>
         <Ionicons name="trash-outline" size={18} color={c.danger} />
@@ -194,6 +218,15 @@ const styles = StyleSheet.create({
   pickerColon: { fontSize: 48, fontWeight: '800', marginTop: -8 },
   hint: { fontSize: 12, lineHeight: 18, marginBottom: Spacing.md },
   saveButton: { marginTop: Spacing.sm },
+  archiveButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.xs,
+    marginTop: Spacing.lg,
+    paddingVertical: Spacing.sm,
+  },
+  archiveText: { fontSize: 14, fontWeight: '500' },
   deleteButton: {
     flexDirection: 'row',
     alignItems: 'center',

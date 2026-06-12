@@ -1,14 +1,17 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import { lastNDateKeys, weekdayLabel } from '@/lib/dates';
+import { generateMonthlyReport } from '@/lib/monthlyReport';
 import { generateWeeklyReport } from '@/lib/weeklyReport';
 import { useAppStore } from '@/store/useAppStore';
 
 const MOOD_EMOJI = ['', '😞', '😕', '😐', '🙂', '😄'];
+type Period = 'week' | 'month';
 
 function MoodDots({ value }: { value: number }) {
   const c = useThemeColors();
@@ -17,10 +20,7 @@ function MoodDots({ value }: { value: number }) {
       {[1, 2, 3, 4, 5].map((v) => (
         <View
           key={v}
-          style={[
-            styles.dot,
-            { backgroundColor: v <= Math.round(value) ? c.primary : c.border },
-          ]}
+          style={[styles.dot, { backgroundColor: v <= Math.round(value) ? c.primary : c.border }]}
         />
       ))}
     </View>
@@ -40,6 +40,24 @@ function PremiumLock({ label }: { label: string }) {
   );
 }
 
+function PeriodToggle({ period, onChange }: { period: Period; onChange: (p: Period) => void }) {
+  const c = useThemeColors();
+  return (
+    <View style={[styles.toggleContainer, { backgroundColor: c.cardPressed }]}>
+      {(['week', 'month'] as Period[]).map((p) => (
+        <Pressable
+          key={p}
+          onPress={() => onChange(p)}
+          style={[styles.toggleBtn, period === p && { backgroundColor: c.card }]}>
+          <Text style={[styles.toggleText, { color: period === p ? c.primary : c.textSecondary }]}>
+            {p === 'week' ? '週間' : '月間'}
+          </Text>
+        </Pressable>
+      ))}
+    </View>
+  );
+}
+
 export default function StatsScreen() {
   const c = useThemeColors();
   const habits = useAppStore((s) => s.habits);
@@ -47,66 +65,75 @@ export default function StatsScreen() {
   const moods = useAppStore((s) => s.moods);
   const isPremium = useAppStore((s) => s.isPremium);
 
-  const week = lastNDateKeys(7);
+  const [period, setPeriod] = useState<Period>('week');
+
   const total = habits.length;
-  const report = generateWeeklyReport(habits, completions, moods);
+  const week = lastNDateKeys(7);
+  const month = lastNDateKeys(30);
+
+  const weeklyReport = generateWeeklyReport(habits, completions, moods);
+  const monthlyReport = generateMonthlyReport(habits, completions, moods);
+
+  const activeReport = period === 'week' ? weeklyReport : monthlyReport;
+  const activeDone = period === 'week' ? weeklyReport.weeklyDone : monthlyReport.monthlyDone;
+  const activeRate = period === 'week' ? weeklyReport.weeklyRate : monthlyReport.monthlyRate;
+  const activeMood = period === 'week' ? weeklyReport.avgMood : monthlyReport.avgMood;
 
   const weeklyRates = week.map((key) => {
-    const done = (completions[key] ?? []).filter((id) =>
-      habits.some((h) => h.id === id),
-    ).length;
+    const done = (completions[key] ?? []).filter((id) => habits.some((h) => h.id === id)).length;
     return total === 0 ? 0 : done / total;
   });
 
-  const moodLabel = report.avgMood === 0
-    ? 'データなし'
-    : MOOD_EMOJI[Math.round(report.avgMood)] + ' ' + report.avgMood.toFixed(1);
+  const moodLabel =
+    activeMood === 0
+      ? 'データなし'
+      : MOOD_EMOJI[Math.round(activeMood)] + ' ' + activeMood.toFixed(1);
 
   return (
     <ScrollView
       style={{ backgroundColor: c.background }}
       contentContainerStyle={styles.content}>
 
-      {/* ── 週次AIレポート ── */}
-      <SectionTitle>今週のAIレポート</SectionTitle>
+      <PeriodToggle period={period} onChange={setPeriod} />
 
-      {/* 基本サマリー（無料でも見える） */}
+      {/* AIレポート */}
+      <SectionTitle>{period === 'week' ? '今週のAIレポート' : '今月のAIレポート'}</SectionTitle>
+
       <View style={styles.summaryRow}>
         <Card style={styles.summaryCard}>
-          <Text style={[styles.summaryValue, { color: c.primary }]}>{report.weeklyDone}</Text>
+          <Text style={[styles.summaryValue, { color: c.primary }]}>{activeDone}</Text>
           <Text style={[styles.summaryLabel, { color: c.textSecondary }]}>達成回数</Text>
-          {report.totalPossible > 0 && (
+          {activeDone > 0 && (
             <Text style={[styles.summaryRate, { color: c.textSecondary }]}>
-              {Math.round(report.weeklyRate * 100)}%
+              {Math.round(activeRate * 100)}%
             </Text>
           )}
         </Card>
         <Card style={styles.summaryCard}>
           <Text style={[styles.summaryValue, { color: c.accent }]}>{moodLabel}</Text>
           <Text style={[styles.summaryLabel, { color: c.textSecondary }]}>平均気分</Text>
-          {report.avgMood > 0 && <MoodDots value={report.avgMood} />}
+          {activeMood > 0 && <MoodDots value={activeMood} />}
         </Card>
       </View>
 
-      {/* トップインサイト（無料でも1件） */}
-      {report.topInsight && (
+      {activeReport.topInsight && (
         <Card style={[styles.insightCard, { borderLeftColor: c.primary }]}>
           <Text style={styles.insightIcon}>💡</Text>
-          <Text style={[styles.insightText, { color: c.text }]}>{report.topInsight}</Text>
+          <Text style={[styles.insightText, { color: c.text }]}>{activeReport.topInsight}</Text>
         </Card>
       )}
 
-      {/* 習慣別パフォーマンス（無料でも見える） */}
-      {report.bestHabit && (
+      {activeReport.bestHabit && (
         <Card style={styles.habitRow}>
-          <Text style={styles.habitPerformEmoji}>{report.bestHabit.habitEmoji}</Text>
+          <Text style={styles.habitPerformEmoji}>{activeReport.bestHabit.habitEmoji}</Text>
           <View style={styles.habitPerformBody}>
             <Text style={[styles.habitPerformName, { color: c.text }]}>
-              {report.bestHabit.habitName}
+              {activeReport.bestHabit.habitName}
             </Text>
             <Text style={[styles.habitPerformSub, { color: c.textSecondary }]}>
-              今週の達成率 {Math.round(report.bestHabit.weekRate * 100)}%
-              {report.bestHabit.streak >= 2 ? `  🔥 ${report.bestHabit.streak}日連続` : ''}
+              {period === 'week' ? '今週' : '今月'}の達成率{' '}
+              {Math.round(activeReport.bestHabit.weekRate * 100)}%
+              {activeReport.bestHabit.streak >= 2 ? `  🔥 ${activeReport.bestHabit.streak}日連続` : ''}
             </Text>
           </View>
           <View style={[styles.badge, { backgroundColor: c.primarySoft }]}>
@@ -115,19 +142,19 @@ export default function StatsScreen() {
         </Card>
       )}
 
-      {/* ── プレミアム解析（ソフトロック） ── */}
+      {/* 詳細分析 */}
       <SectionTitle>詳細分析</SectionTitle>
       <View style={styles.premiumSection}>
-        {/* コンテンツ（常にレンダリング、ロック時はぼかし） */}
         <View style={[styles.premiumContent, !isPremium && styles.blurred]}>
-          {/* 曜日パターン */}
-          {report.dayPatterns.length > 0 && (
+          {activeReport.dayPatterns.length > 0 && (
             <Card style={styles.dayPatternCard}>
-              <Text style={[styles.analysisTitle, { color: c.text }]}>曜日別パターン（過去4週）</Text>
+              <Text style={[styles.analysisTitle, { color: c.text }]}>
+                曜日別パターン{period === 'week' ? '（過去4週）' : '（今月）'}
+              </Text>
               <View style={styles.dayPatternRow}>
-                {report.dayPatterns.slice(0, 7).map((dp) => (
+                {activeReport.dayPatterns.slice(0, 7).map((dp) => (
                   <View key={dp.dayLabel} style={styles.dayCol}>
-                    <Text style={[styles.dayMoodEmoji]}>
+                    <Text style={styles.dayMoodEmoji}>
                       {dp.avgMood > 0 ? MOOD_EMOJI[Math.round(dp.avgMood)] : '·'}
                     </Text>
                     <View style={[styles.dayBarTrack, { backgroundColor: c.cardPressed }]}>
@@ -150,31 +177,27 @@ export default function StatsScreen() {
             </Card>
           )}
 
-          {/* 気分×習慣の相関 */}
-          {(report.moodHabitCorrelation || report.lowMoodDayWarning) && (
+          {activeReport.moodHabitCorrelation || activeReport.lowMoodDayWarning ? (
             <Card style={styles.correlationCard}>
               <Text style={[styles.analysisTitle, { color: c.text }]}>AIが発見したパターン</Text>
-              {report.moodHabitCorrelation && (
+              {activeReport.moodHabitCorrelation && (
                 <View style={styles.correlationRow}>
                   <Text style={styles.corrIcon}>📈</Text>
                   <Text style={[styles.corrText, { color: c.text }]}>
-                    {report.moodHabitCorrelation}
+                    {activeReport.moodHabitCorrelation}
                   </Text>
                 </View>
               )}
-              {report.lowMoodDayWarning && (
+              {activeReport.lowMoodDayWarning && (
                 <View style={styles.correlationRow}>
                   <Text style={styles.corrIcon}>⚠️</Text>
                   <Text style={[styles.corrText, { color: c.text }]}>
-                    {report.lowMoodDayWarning}
+                    {activeReport.lowMoodDayWarning}
                   </Text>
                 </View>
               )}
             </Card>
-          )}
-
-          {/* データが少ない場合のプレースホルダー */}
-          {!report.moodHabitCorrelation && !report.lowMoodDayWarning && (
+          ) : (
             <Card>
               <Text style={[styles.analysisTitle, { color: c.text }]}>AIが発見したパターン</Text>
               <Text style={[styles.noDataText, { color: c.textSecondary }]}>
@@ -183,54 +206,103 @@ export default function StatsScreen() {
             </Card>
           )}
         </View>
-
-        {/* ロックオーバーレイ */}
         {!isPremium && (
           <PremiumLock label="気分×習慣の相関分析、曜日パターンを確認できます" />
         )}
       </View>
 
-      {/* ── 週間達成率グラフ ── */}
-      <SectionTitle>週間達成率</SectionTitle>
-      <Card>
-        <View style={styles.chart}>
-          {week.map((key, i) => (
-            <View key={key} style={styles.chartCol}>
-              <View style={[styles.barTrack, { backgroundColor: c.cardPressed }]}>
-                <View
-                  style={[
-                    styles.barFill,
-                    {
-                      backgroundColor: c.primary,
-                      height: `${Math.round(weeklyRates[i] * 100)}%`,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={[styles.chartLabel, { color: c.textSecondary }]}>
-                {weekdayLabel(key)}
-              </Text>
+      {/* グラフ */}
+      {period === 'week' ? (
+        <>
+          <SectionTitle>週間達成率</SectionTitle>
+          <Card>
+            <View style={styles.chart}>
+              {week.map((key, i) => (
+                <View key={key} style={styles.chartCol}>
+                  <View style={[styles.barTrack, { backgroundColor: c.cardPressed }]}>
+                    <View
+                      style={[
+                        styles.barFill,
+                        { backgroundColor: c.primary, height: `${Math.round(weeklyRates[i] * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.chartLabel, { color: c.textSecondary }]}>
+                    {weekdayLabel(key)}
+                  </Text>
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
-      </Card>
+          </Card>
 
-      {/* ── 気分の移り変わり ── */}
-      <SectionTitle>気分の移り変わり</SectionTitle>
-      <Card>
-        <View style={styles.moodRow}>
-          {week.map((key) => (
-            <View key={key} style={styles.moodCol}>
-              <Text style={styles.moodEmoji}>
-                {moods[key] ? MOOD_EMOJI[moods[key]] : '·'}
-              </Text>
-              <Text style={[styles.chartLabel, { color: c.textSecondary }]}>
-                {weekdayLabel(key)}
-              </Text>
+          <SectionTitle>気分の移り変わり</SectionTitle>
+          <Card>
+            <View style={styles.moodRow}>
+              {week.map((key) => (
+                <View key={key} style={styles.moodCol}>
+                  <Text style={styles.moodEmoji}>
+                    {moods[key] ? MOOD_EMOJI[moods[key]] : '·'}
+                  </Text>
+                  <Text style={[styles.chartLabel, { color: c.textSecondary }]}>
+                    {weekdayLabel(key)}
+                  </Text>
+                </View>
+              ))}
             </View>
-          ))}
+          </Card>
+        </>
+      ) : (
+        <>
+          <SectionTitle>週別達成率（4週）</SectionTitle>
+          <Card>
+            <View style={styles.weekBreakRow}>
+              {monthlyReport.weekBreakdown.map((wb) => (
+                <View key={wb.label} style={styles.weekBreakCol}>
+                  <View style={[styles.wbBarTrack, { backgroundColor: c.cardPressed }]}>
+                    <View
+                      style={[
+                        styles.wbBarFill,
+                        { backgroundColor: c.primary, height: `${Math.round(wb.rate * 100)}%` },
+                      ]}
+                    />
+                  </View>
+                  <Text style={[styles.wbLabel, { color: c.textSecondary }]}>{wb.label}</Text>
+                  <Text style={[styles.wbRate, { color: c.text }]}>
+                    {Math.round(wb.rate * 100)}%
+                  </Text>
+                </View>
+              ))}
+            </View>
+          </Card>
+
+          <SectionTitle>気分の移り変わり（30日）</SectionTitle>
+          <Card>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={styles.moodRow30}>
+                {month.map((key) => (
+                  <View key={key} style={styles.moodCol30}>
+                    <Text style={styles.moodEmoji30}>
+                      {moods[key] ? MOOD_EMOJI[moods[key]] : '·'}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            </ScrollView>
+          </Card>
+        </>
+      )}
+
+      {/* 年間レポート */}
+      <SectionTitle>年間レポート</SectionTitle>
+      <Pressable
+        onPress={() => router.push('/annual-report')}
+        style={styles.annualBtn}>
+        <Text style={styles.annualEmoji}>🎊</Text>
+        <View style={styles.annualBody}>
+          <Text style={styles.annualTitle}>{new Date().getFullYear()}年のふりかえり</Text>
+          <Text style={styles.annualSub}>Wrapped スタイルで確認する →</Text>
         </View>
-      </Card>
+      </Pressable>
 
       {total === 0 && (
         <Text style={[styles.hint, { color: c.textSecondary }]}>
@@ -244,7 +316,15 @@ export default function StatsScreen() {
 const styles = StyleSheet.create({
   content: { padding: Spacing.md, paddingBottom: Spacing.xl },
 
-  // サマリー
+  toggleContainer: {
+    flexDirection: 'row',
+    borderRadius: Radius.md,
+    padding: 4,
+    marginBottom: Spacing.sm,
+  },
+  toggleBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.sm },
+  toggleText: { fontSize: 14, fontWeight: '700' },
+
   summaryRow: { flexDirection: 'row', gap: Spacing.sm },
   summaryCard: { flex: 1, alignItems: 'center', gap: Spacing.xs },
   summaryValue: { fontSize: 26, fontWeight: '800' },
@@ -253,7 +333,6 @@ const styles = StyleSheet.create({
   moodDots: { flexDirection: 'row', gap: 3, marginTop: 2 },
   dot: { width: 6, height: 6, borderRadius: 3 },
 
-  // インサイトカード
   insightCard: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -264,7 +343,6 @@ const styles = StyleSheet.create({
   insightIcon: { fontSize: 16 },
   insightText: { flex: 1, fontSize: 13, lineHeight: 20 },
 
-  // 習慣別パフォーマンス
   habitRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -278,7 +356,6 @@ const styles = StyleSheet.create({
   badge: { borderRadius: Radius.full, paddingHorizontal: Spacing.sm, paddingVertical: 3 },
   badgeText: { fontSize: 11, fontWeight: '700' },
 
-  // プレミアムセクション
   premiumSection: { position: 'relative' },
   premiumContent: {},
   blurred: { opacity: 0.25 },
@@ -297,7 +374,6 @@ const styles = StyleSheet.create({
   lockText: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
   lockSub: { fontSize: 13, fontWeight: '700' },
 
-  // 曜日パターン
   dayPatternCard: { marginBottom: Spacing.sm },
   analysisTitle: { fontSize: 13, fontWeight: '700', marginBottom: Spacing.sm },
   dayPatternRow: { flexDirection: 'row', justifyContent: 'space-between', height: 100 },
@@ -307,14 +383,17 @@ const styles = StyleSheet.create({
   dayBarFill: { width: '100%', borderRadius: 7 },
   dayLabel: { fontSize: 11 },
 
-  // 相関
   correlationCard: { marginBottom: Spacing.sm },
-  correlationRow: { flexDirection: 'row', alignItems: 'flex-start', gap: Spacing.sm, marginTop: Spacing.xs },
+  correlationRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: Spacing.sm,
+    marginTop: Spacing.xs,
+  },
   corrIcon: { fontSize: 14 },
   corrText: { flex: 1, fontSize: 13, lineHeight: 20 },
   noDataText: { fontSize: 13, lineHeight: 20, marginTop: Spacing.xs },
 
-  // 既存グラフ
   chart: { flexDirection: 'row', justifyContent: 'space-between', height: 140 },
   chartCol: { alignItems: 'center', flex: 1, gap: Spacing.xs },
   barTrack: { flex: 1, width: 18, borderRadius: 9, overflow: 'hidden', justifyContent: 'flex-end' },
@@ -323,5 +402,30 @@ const styles = StyleSheet.create({
   moodRow: { flexDirection: 'row', justifyContent: 'space-between' },
   moodCol: { alignItems: 'center', flex: 1, gap: Spacing.xs },
   moodEmoji: { fontSize: 22 },
+
+  weekBreakRow: { flexDirection: 'row', justifyContent: 'space-around', height: 130 },
+  weekBreakCol: { alignItems: 'center', flex: 1, gap: Spacing.xs },
+  wbBarTrack: { flex: 1, width: 24, borderRadius: 12, overflow: 'hidden', justifyContent: 'flex-end' },
+  wbBarFill: { width: '100%', borderRadius: 12 },
+  wbLabel: { fontSize: 11 },
+  wbRate: { fontSize: 12, fontWeight: '700' },
+
+  moodRow30: { flexDirection: 'row', gap: 3, paddingVertical: 4 },
+  moodCol30: { alignItems: 'center', width: 20 },
+  moodEmoji30: { fontSize: 14 },
+
+  annualBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    padding: Spacing.md,
+    borderRadius: Radius.md,
+    backgroundColor: '#3E8E75',
+  },
+  annualEmoji: { fontSize: 28 },
+  annualBody: { flex: 1 },
+  annualTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
+  annualSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+
   hint: { marginTop: Spacing.lg, textAlign: 'center', fontSize: 13 },
 });

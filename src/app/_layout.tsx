@@ -7,10 +7,13 @@ import { useColorScheme } from 'react-native';
 import {
   initNotifications,
   NOTIF_ACTION_COMPLETE,
+  cancelWeeklyNotification,
   requestNotificationPermissions,
   rescheduleAllHabitReminders,
   scheduleMoodReminder,
+  scheduleWeeklyReportNotification,
 } from '@/lib/notifications';
+import { generateWeeklyReport } from '@/lib/weeklyReport';
 import { checkPremium, initPurchases } from '@/lib/purchases';
 import { useAppStore } from '@/store/useAppStore';
 
@@ -19,6 +22,8 @@ export default function RootLayout() {
   const setPremium = useAppStore((s) => s.setPremium);
   const completeHabit = useAppStore((s) => s.completeHabit);
   const habits = useAppStore((s) => s.habits);
+  const completions = useAppStore((s) => s.completions);
+  const moods = useAppStore((s) => s.moods);
   const profile = useAppStore((s) => s.profile);
 
   useEffect(() => {
@@ -42,6 +47,16 @@ export default function RootLayout() {
         await rescheduleAllHabitReminders(habits);
         if (profile.moodReminderTime) {
           await scheduleMoodReminder(profile.moodReminderTime);
+        }
+        if (profile.weeklyNotificationEnabled) {
+          const report = generateWeeklyReport(habits, completions, moods);
+          await scheduleWeeklyReportNotification({
+            rate: report.weeklyRate,
+            bestHabitName: report.bestHabit?.habitName,
+            time: profile.weeklyNotificationTime ?? '09:00',
+          });
+        } else {
+          await cancelWeeklyNotification();
         }
         // Handle the notification that launched the app from killed state
         const lastResponse = await Notifications.getLastNotificationResponseAsync();
@@ -89,6 +104,14 @@ export default function RootLayout() {
           name="legal"
           options={{ presentation: 'modal', title: '法的情報' }}
         />
+        <Stack.Screen
+          name="annual-report"
+          options={{ headerShown: false }}
+        />
+        <Stack.Screen
+          name="archived-habits"
+          options={{ title: 'アーカイブ済み習慣' }}
+        />
       </Stack>
     </ThemeProvider>
   );
@@ -106,6 +129,8 @@ function handleNotificationResponse(
   } else if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
     if (data.type === 'mood') {
       router.push('/(tabs)/');
+    } else if (data.type === 'weekly-report') {
+      router.push('/(tabs)/stats');
     }
   }
 }

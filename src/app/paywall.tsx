@@ -137,7 +137,7 @@ export default function PaywallScreen() {
               },
             ]}>
             <View style={[styles.recommendBadge, { backgroundColor: c.primary }]}>
-              <Text style={styles.recommendText}>おすすめ</Text>
+              <Text style={styles.recommendText}>7日間無料体験 · おすすめ</Text>
             </View>
             <View style={styles.planHeader}>
               <Text style={[styles.planTitle, { color: c.text }]}>{annualPlan.title}</Text>
@@ -175,7 +175,7 @@ export default function PaywallScreen() {
 
       {/* CTA */}
       <PrimaryButton
-        label="プレミアムをはじめる"
+        label={selected === annualPlan?.id ? '7日間無料で試す' : 'プレミアムをはじめる'}
         onPress={onPurchase}
         loading={busy}
         disabled={!selected}

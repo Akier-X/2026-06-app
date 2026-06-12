@@ -5,6 +5,7 @@ import type { Habit } from '@/types';
 
 const HABIT_NOTIF_PREFIX = 'habit-';
 const MOOD_NOTIF_ID = 'mood-daily';
+const WEEKLY_NOTIF_ID = 'weekly-report';
 
 export const NOTIF_ACTION_COMPLETE = 'HABIT_COMPLETE';
 export const NOTIF_ACTION_SKIP = 'HABIT_SKIP';
@@ -123,4 +124,38 @@ export async function scheduleMoodReminder(time: string): Promise<void> {
 
 export async function cancelMoodReminder(): Promise<void> {
   await Notifications.cancelScheduledNotificationAsync(MOOD_NOTIF_ID).catch(() => {});
+}
+
+export async function scheduleWeeklyReportNotification(opts: {
+  rate: number;
+  bestHabitName?: string;
+  time: string;
+}): Promise<void> {
+  const [h, m] = opts.time.split(':').map(Number);
+  if (isNaN(h) || isNaN(m)) return;
+
+  await Notifications.cancelScheduledNotificationAsync(WEEKLY_NOTIF_ID).catch(() => {});
+
+  const rateText = opts.rate > 0 ? `今週の達成率 ${Math.round(opts.rate * 100)}%` : '振り返りを見てみましょう';
+  const body = opts.bestHabitName ? `${rateText} · ${opts.bestHabitName}が好調です` : rateText;
+
+  await Notifications.scheduleNotificationAsync({
+    identifier: WEEKLY_NOTIF_ID,
+    content: {
+      title: '今週の習慣レポートが届きました',
+      body,
+      data: { type: 'weekly-report' },
+      ...(Platform.OS === 'android' ? { android: { channelId: 'mood-reminders' } } : {}),
+    },
+    trigger: {
+      type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
+      weekday: 1, // 1 = Sunday
+      hour: h,
+      minute: m,
+    },
+  });
+}
+
+export async function cancelWeeklyNotification(): Promise<void> {
+  await Notifications.cancelScheduledNotificationAsync(WEEKLY_NOTIF_ID).catch(() => {});
 }
