@@ -3,6 +3,8 @@ import { router } from 'expo-router';
 import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import * as StoreReview from 'expo-store-review';
+
 import MilestoneModal, { MILESTONE_DAYS, type MilestoneData } from '@/components/MilestoneModal';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
@@ -165,7 +167,15 @@ export default function TodayScreen() {
     <MilestoneModal
       milestone={activeMilestone}
       onClose={() => {
-        if (activeMilestone) markMilestoneSeen(activeMilestone.key);
+        if (activeMilestone) {
+          markMilestoneSeen(activeMilestone.key);
+          // 7日・30日達成時にレビューを依頼
+          if (activeMilestone.days === 7 || activeMilestone.days === 30) {
+            StoreReview.isAvailableAsync().then((available) => {
+              if (available) StoreReview.requestReview();
+            });
+          }
+        }
         setActiveMilestone(null);
       }}
     />

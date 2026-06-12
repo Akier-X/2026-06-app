@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import AdBanner from '@/components/AdBanner';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import { lastNDateKeys, weekdayLabel } from '@/lib/dates';
+import { showRewardedAd } from '@/lib/ads';
 import { generateMonthlyReport } from '@/lib/monthlyReport';
 import { generateWeeklyReport } from '@/lib/weeklyReport';
 import { useAppStore } from '@/store/useAppStore';
@@ -66,10 +68,31 @@ export default function StatsScreen() {
   const isPremium = useAppStore((s) => s.isPremium);
 
   const [period, setPeriod] = useState<Period>('week');
+  const [monthlyUnlocked, setMonthlyUnlocked] = useState(false);
+  const [loadingAd, setLoadingAd] = useState(false);
 
   const total = habits.length;
   const week = lastNDateKeys(7);
   const month = lastNDateKeys(30);
+
+  // データ充足チェック（3日以上の記録があれば分析可能）
+  const activeDaysWeek = week.filter((k) => (completions[k]?.length ?? 0) > 0 || moods[k]).length;
+  const activeDaysMonth = month.filter((k) => (completions[k]?.length ?? 0) > 0 || moods[k]).length;
+  const activeDays = period === 'week' ? activeDaysWeek : activeDaysMonth;
+  const minDays = 3;
+  const hasEnoughData = activeDays >= minDays;
+  const daysUntilAnalysis = Math.max(0, minDays - activeDays);
+
+  const onWatchAd = () => {
+    setLoadingAd(true);
+    showRewardedAd({
+      onRewarded: () => { setMonthlyUnlocked(true); setLoadingAd(false); },
+      onFailed: () => {
+        setLoadingAd(false);
+        Alert.alert('広告を読み込めませんでした', '時間をおいて再度お試しください。');
+      },
+    });
+  };
 
   const weeklyReport = generateWeeklyReport(habits, completions, moods);
   const monthlyReport = generateMonthlyReport(habits, completions, moods);
@@ -96,7 +119,61 @@ export default function StatsScreen() {
 
       <PeriodToggle period={period} onChange={setPeriod} />
 
-      {/* AIレポート */}
+      {/* 月間レポート：無料ユーザー向けゲート */}
+      {period === 'month' && !isPremium && !monthlyUnlocked && (
+        <View style={[styles.monthGate, { backgroundColor: c.card, borderColor: c.border }]}>
+          <Text style={styles.gateEmoji}>📊</Text>
+          <Text style={[styles.gateTitle, { color: c.text }]}>月次レポート</Text>
+          <Text style={[styles.gateSub, { color: c.textSecondary }]}>
+            30日間のデータを深く分析します
+          </Text>
+          <Pressable
+            onPress={onWatchAd}
+            disabled={loadingAd}
+            style={[styles.gateAdBtn, { backgroundColor: c.primary }]}>
+            <Text style={styles.gateAdBtnText}>
+              {loadingAd ? '読み込み中...' : '広告を見て無料で解放'}
+            </Text>
+          </Pressable>
+          <Pressable onPress={() => router.push('/paywall')}>
+            <Text style={[styles.gateUpgrade, { color: c.primary }]}>
+              プレミアムでいつでも見る →
+            </Text>
+          </Pressable>
+        </View>
+      )}
+
+      {/* データ不足 / 習慣なし の空状態 */}
+      {(period === 'week' || isPremium || monthlyUnlocked) && (
+        <>
+          {total === 0 ? (
+            <View style={[styles.emptyState, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={styles.emptyEmoji}>🌱</Text>
+              <Text style={[styles.emptyTitle, { color: c.text }]}>習慣を追加しましょう</Text>
+              <Text style={[styles.emptySub, { color: c.textSecondary }]}>
+                「今日」タブから習慣を追加すると分析が始まります
+              </Text>
+              <Pressable
+                onPress={() => router.push('/(tabs)/')}
+                style={[styles.emptyBtn, { borderColor: c.primary }]}>
+                <Text style={[styles.emptyBtnText, { color: c.primary }]}>習慣を追加する</Text>
+              </Pressable>
+            </View>
+          ) : !hasEnoughData ? (
+            <View style={[styles.emptyState, { backgroundColor: c.card, borderColor: c.border }]}>
+              <Text style={styles.emptyEmoji}>📈</Text>
+              <Text style={[styles.emptyTitle, { color: c.text }]}>分析の準備中</Text>
+              <Text style={[styles.emptySub, { color: c.textSecondary }]}>
+                あと{daysUntilAnalysis}日記録すると最初の分析が見られます
+              </Text>
+            </View>
+          ) : null}
+        </>
+      )}
+
+      {/* AIレポート（データ十分 かつ 月間は解放済みの場合のみ表示） */}
+      {(hasEnoughData && total > 0) && (period === 'week' || isPremium || monthlyUnlocked) && (
+        <>
       <SectionTitle>{period === 'week' ? '今週のAIレポート' : '今月のAIレポート'}</SectionTitle>
 
       <View style={styles.summaryRow}>
@@ -303,12 +380,11 @@ export default function StatsScreen() {
           <Text style={styles.annualSub}>Wrapped スタイルで確認する →</Text>
         </View>
       </Pressable>
-
-      {total === 0 && (
-        <Text style={[styles.hint, { color: c.textSecondary }]}>
-          習慣を追加すると、ここに記録が表示されます。
-        </Text>
+        </>
       )}
+
+      {/* バナー広告（無料ユーザーのみ） */}
+      {!isPremium && <AdBanner />}
     </ScrollView>
   );
 }
@@ -413,6 +489,48 @@ const styles = StyleSheet.create({
   moodRow30: { flexDirection: 'row', gap: 3, paddingVertical: 4 },
   moodCol30: { alignItems: 'center', width: 20 },
   moodEmoji30: { fontSize: 14 },
+
+  // 月次ゲート
+  monthGate: {
+    alignItems: 'center',
+    padding: Spacing.xl,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  gateEmoji: { fontSize: 40 },
+  gateTitle: { fontSize: 18, fontWeight: '800' },
+  gateSub: { fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  gateAdBtn: {
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 12,
+    borderRadius: Radius.full,
+    marginTop: Spacing.sm,
+  },
+  gateAdBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  gateUpgrade: { fontSize: 13, fontWeight: '600', marginTop: Spacing.xs },
+
+  // 空状態
+  emptyState: {
+    alignItems: 'center',
+    padding: Spacing.xl,
+    borderRadius: Radius.md,
+    borderWidth: 1,
+    gap: Spacing.sm,
+    marginBottom: Spacing.md,
+  },
+  emptyEmoji: { fontSize: 36 },
+  emptyTitle: { fontSize: 16, fontWeight: '800' },
+  emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 19 },
+  emptyBtn: {
+    borderWidth: 1.5,
+    borderRadius: Radius.full,
+    paddingHorizontal: Spacing.lg,
+    paddingVertical: 8,
+    marginTop: Spacing.xs,
+  },
+  emptyBtnText: { fontWeight: '700', fontSize: 13 },
 
   annualBtn: {
     flexDirection: 'row',

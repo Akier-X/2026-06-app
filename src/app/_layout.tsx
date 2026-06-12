@@ -13,6 +13,7 @@ import {
   scheduleMoodReminder,
   scheduleWeeklyReportNotification,
 } from '@/lib/notifications';
+import { initAds } from '@/lib/ads';
 import { generateWeeklyReport } from '@/lib/weeklyReport';
 import { checkPremium, initPurchases } from '@/lib/purchases';
 import { useAppStore } from '@/store/useAppStore';
@@ -35,6 +36,7 @@ export default function RootLayout() {
       } catch {
         // Purchases are unavailable (Expo Go / web) — keep local state.
       }
+      await initAds();
     })();
   }, [setPremium]);
 
