@@ -346,7 +346,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 21,
     marginTop: 6,
-    maxWidth: 280,
+    alignSelf: 'stretch',
   },
   shareBtn: {
     marginTop: 20,
