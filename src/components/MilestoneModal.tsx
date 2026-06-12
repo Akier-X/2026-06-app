@@ -12,18 +12,18 @@ export interface MilestoneData {
 
 const MILESTONE_CONFIG: Record<number, { title: string; message: string; badge: string }> = {
   7: {
-    title: '1週間達成!',
-    message: '7日連続は素晴らしい一歩です。\nこの調子で続けましょう！',
+    title: '1週間達成！',
+    message: '7日連続は素晴らしい一歩です。この調子で続けましょう！',
     badge: '🥉',
   },
   30: {
-    title: '1ヶ月達成!',
-    message: '30日間やり遂げました。\nもはや本当の習慣になっています！',
+    title: '1ヶ月達成！',
+    message: '30日間やり遂げました。もはや本当の習慣になっています！',
     badge: '🥈',
   },
   100: {
-    title: '100日達成!',
-    message: '100日連続という偉業です。\nあなたは本物の習慣マスターです！',
+    title: '100日達成！',
+    message: '100日連続という偉業です。あなたは本物の習慣マスターです！',
     badge: '🏆',
   },
 };

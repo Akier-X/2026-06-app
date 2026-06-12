@@ -87,7 +87,7 @@ export default function CoachScreen() {
             <Text style={styles.emptyEmoji}>🧘</Text>
             <Text style={[styles.emptyTitle, { color: c.text }]}>AIコーチに相談しよう</Text>
             <Text style={[styles.emptyBody, { color: c.textSecondary }]}>
-              「やる気が出ない」「続けるコツは?」など{'\n'}なんでも話しかけてください。
+              「やる気が出ない」「続けるコツは?」など、なんでも話しかけてください。
             </Text>
           </View>
         }

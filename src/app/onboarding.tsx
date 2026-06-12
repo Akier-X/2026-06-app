@@ -78,7 +78,7 @@ export default function Onboarding() {
               <Text style={[styles.hero, { color: c.primary }]}>🌱</Text>
               <Text style={[styles.title, { color: c.text }]}>ココロコーチへようこそ</Text>
               <Text style={[styles.body, { color: c.textSecondary }]}>
-                AIコーチと一緒に、小さな習慣を積み重ねて{'\n'}心と暮らしを整えるアプリです。
+                AIコーチと一緒に、小さな習慣を積み重ねて心と暮らしを整えるアプリです。
               </Text>
               <Text style={[styles.label, { color: c.textSecondary }]}>
                 ニックネームを教えてください

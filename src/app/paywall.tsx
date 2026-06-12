@@ -188,7 +188,7 @@ export default function PaywallScreen() {
 
       {/* 法務 */}
       <Text style={[styles.legal, { color: c.textSecondary }]}>
-        お支払いはGoogleアカウント(Google Play)に請求されます。サブスクリプションは期間終了前に解約しない限り自動更新されます。購入後はGoogle Playのアカウント設定からいつでも管理・解約できます。
+        お支払いはGoogleアカウント(Google Play)に請求されます。{'\n'}サブスクリプションは期間終了前に解約しない限り自動更新されます。{'\n'}購入後はGoogle Playのアカウント設定からいつでも管理・解約できます。
       </Text>
       <View style={styles.legalLinks}>
         <Pressable onPress={() => router.push('/legal?type=terms')}>
