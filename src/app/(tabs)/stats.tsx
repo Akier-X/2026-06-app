@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import AdBanner from '@/components/AdBanner';
+import InsightShareModal from '@/components/InsightShareModal';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import { lastNDateKeys, weekdayLabel } from '@/lib/dates';
@@ -72,6 +73,7 @@ export default function StatsScreen() {
   const [loadingAd, setLoadingAd] = useState(false);
   const [detailUnlocked, setDetailUnlocked] = useState(false);
   const [loadingDetailAd, setLoadingDetailAd] = useState(false);
+  const [shareInsight, setShareInsight] = useState<string | null>(null);
 
   // ユーザー成熟度チェック（7日以上記録があるユーザーのみバナー・インタースティシャルを表示）
   const allDays = { ...completions };
@@ -147,6 +149,7 @@ export default function StatsScreen() {
       : MOOD_EMOJI[Math.round(activeMood)] + ' ' + activeMood.toFixed(1);
 
   return (
+    <>
     <ScrollView
       style={{ backgroundColor: c.background }}
       contentContainerStyle={styles.content}>
@@ -267,7 +270,15 @@ export default function StatsScreen() {
       {activeReport.topInsight && (
         <Card style={[styles.insightCard, { borderLeftColor: c.primary }]}>
           <Text style={styles.insightIcon}>💡</Text>
-          <Text style={[styles.insightText, { color: c.text }]}>{activeReport.topInsight}</Text>
+          <View style={styles.insightBody}>
+            <Text style={[styles.insightText, { color: c.text }]}>{activeReport.topInsight}</Text>
+            <Pressable
+              onPress={() => setShareInsight(activeReport.topInsight!)}
+              style={styles.insightShareBtn}>
+              <Ionicons name="share-outline" size={16} color={c.primary} />
+              <Text style={[styles.insightShareTxt, { color: c.primary }]}>シェア</Text>
+            </Pressable>
+          </View>
         </Card>
       )}
 
@@ -329,20 +340,26 @@ export default function StatsScreen() {
             <Card style={styles.correlationCard}>
               <Text style={[styles.analysisTitle, { color: c.text }]}>AIが発見したパターン</Text>
               {activeReport.moodHabitCorrelation && (
-                <View style={styles.correlationRow}>
+                <Pressable
+                  style={styles.correlationRow}
+                  onPress={() => setShareInsight(activeReport.moodHabitCorrelation!)}>
                   <Text style={styles.corrIcon}>📈</Text>
                   <Text style={[styles.corrText, { color: c.text }]}>
                     {activeReport.moodHabitCorrelation}
                   </Text>
-                </View>
+                  <Ionicons name="share-outline" size={14} color={c.primary} />
+                </Pressable>
               )}
               {activeReport.lowMoodDayWarning && (
-                <View style={styles.correlationRow}>
+                <Pressable
+                  style={styles.correlationRow}
+                  onPress={() => setShareInsight(activeReport.lowMoodDayWarning!)}>
                   <Text style={styles.corrIcon}>⚠️</Text>
                   <Text style={[styles.corrText, { color: c.text }]}>
                     {activeReport.lowMoodDayWarning}
                   </Text>
-                </View>
+                  <Ionicons name="share-outline" size={14} color={c.primary} />
+                </Pressable>
               )}
             </Card>
           ) : (
@@ -473,6 +490,12 @@ export default function StatsScreen() {
       {/* バナー広告（無料・7日以上記録のユーザーのみ） */}
       {!isPremium && !isNewUser && <AdBanner />}
     </ScrollView>
+
+    <InsightShareModal
+      insight={shareInsight}
+      onClose={() => setShareInsight(null)}
+    />
+    </>
   );
 }
 
@@ -504,7 +527,10 @@ const styles = StyleSheet.create({
     borderLeftWidth: 3,
   },
   insightIcon: { fontSize: 16 },
-  insightText: { flex: 1, fontSize: 13, lineHeight: 20 },
+  insightBody: { flex: 1, gap: 6 },
+  insightText: { fontSize: 13, lineHeight: 20 },
+  insightShareBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
+  insightShareTxt: { fontSize: 12, fontWeight: '700' },
 
   habitRow: {
     flexDirection: 'row',

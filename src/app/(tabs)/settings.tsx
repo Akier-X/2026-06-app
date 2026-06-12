@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
+import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import AdBanner from '@/components/AdBanner';
 import { Card, SectionTitle } from '@/components/ui';
@@ -65,6 +65,9 @@ const tpStyles = StyleSheet.create({
 export default function SettingsScreen() {
   const c = useThemeColors();
   const isPremium = useAppStore((s) => s.isPremium);
+  const freeTrialUntil = useAppStore((s) => s.freeTrialUntil);
+  const referralCode = useAppStore((s) => s.referralCode);
+  const redeemReferralCode = useAppStore((s) => s.redeemReferralCode);
   const setPremium = useAppStore((s) => s.setPremium);
   const resetAll = useAppStore((s) => s.resetAll);
   const profile = useAppStore((s) => s.profile);
@@ -80,6 +83,7 @@ export default function SettingsScreen() {
   const showBanner = !isPremium && totalDaysWithData >= 7;
 
   const [restoring, setRestoring] = useState(false);
+  const [referralInput, setReferralInput] = useState('');
   const [moodReminderEnabled, setMoodReminderEnabled] = useState(!!profile.moodReminderTime);
   const [moodReminderTime, setMoodReminderTime] = useState(profile.moodReminderTime ?? '20:00');
   const [weeklyEnabled, setWeeklyEnabled] = useState(!!profile.weeklyNotificationEnabled);
@@ -99,6 +103,33 @@ export default function SettingsScreen() {
       Alert.alert('エラー', '購入の復元に失敗しました。時間をおいて再度お試しください。');
     } finally {
       setRestoring(false);
+    }
+  };
+
+  const onShareReferral = async () => {
+    try {
+      await Share.share({
+        message:
+          `ここロコーチで習慣管理を始めました！🌿\n` +
+          `招待コードを使うと7日間プレミアムが無料で試せます。\n\n` +
+          `招待コード: ${referralCode}\n\n` +
+          `#ここロコーチ #習慣化`,
+      });
+    } catch { /* ignore */ }
+  };
+
+  const onRedeemCode = () => {
+    const result = redeemReferralCode(referralInput);
+    if (result === 'ok') {
+      setReferralInput('');
+      Alert.alert(
+        '7日間プレミアム開始！',
+        'プレミアムが有効になりました。すべての機能をお楽しみください 🎉',
+      );
+    } else if (result === 'already_redeemed') {
+      Alert.alert('このコードは使用済みです', '別のコードをお試しください。');
+    } else {
+      Alert.alert('無効なコードです', 'コードの形式を確認してください（例: AB3F-7XK2）。');
     }
   };
 
@@ -269,6 +300,59 @@ export default function SettingsScreen() {
         onPress={() => router.push('/archived-habits')}
       />
 
+      {/* 友達を招待 */}
+      <SectionTitle>友達を招待</SectionTitle>
+      <Card style={refStyles.section}>
+        <View style={refStyles.codeRow}>
+          <Text style={[refStyles.codeLabel, { color: c.textSecondary }]}>あなたの招待コード</Text>
+          <Text style={[refStyles.code, { color: c.primary }]}>{referralCode}</Text>
+        </View>
+        <Pressable
+          onPress={onShareReferral}
+          style={[refStyles.shareBtn, { backgroundColor: c.primary }]}>
+          <Ionicons name="share-outline" size={16} color="#fff" />
+          <Text style={refStyles.shareBtnText}>コードをシェアする</Text>
+        </Pressable>
+
+        <View style={[refStyles.divider, { backgroundColor: c.border }]} />
+
+        <Text style={[refStyles.redeemLabel, { color: c.textSecondary }]}>
+          友達のコードを持っていますか？7日間プレミアムが無料で試せます。
+        </Text>
+        {isPremium && !freeTrialUntil ? (
+          <Text style={[refStyles.alreadyPremium, { color: c.primary }]}>
+            ✓ プレミアム会員のためトライアル対象外です
+          </Text>
+        ) : (
+          <View style={refStyles.inputRow}>
+            <TextInput
+              value={referralInput}
+              onChangeText={setReferralInput}
+              placeholder="例: AB3F-7XK2"
+              placeholderTextColor={c.textSecondary}
+              autoCapitalize="characters"
+              style={[refStyles.input, { color: c.text, borderColor: c.border, backgroundColor: c.background }]}
+            />
+            <Pressable
+              onPress={onRedeemCode}
+              disabled={!referralInput.trim()}
+              style={[
+                refStyles.redeemBtn,
+                { backgroundColor: referralInput.trim() ? c.primary : c.cardPressed },
+              ]}>
+              <Text style={[refStyles.redeemBtnText, { color: referralInput.trim() ? '#fff' : c.textSecondary }]}>
+                受け取る
+              </Text>
+            </Pressable>
+          </View>
+        )}
+        {freeTrialUntil && (
+          <Text style={[refStyles.trialBadge, { color: c.primary }]}>
+            🎉 トライアル中 〜 {new Date(freeTrialUntil).toLocaleDateString('ja-JP')}
+          </Text>
+        )}
+      </Card>
+
       <SectionTitle>このアプリについて</SectionTitle>
       <Row
         icon="mail-outline"
@@ -325,4 +409,42 @@ const styles = StyleSheet.create({
   },
   timePickerLabel: { fontSize: 12 },
   notifHint: { fontSize: 12, marginBottom: Spacing.md, lineHeight: 17 },
+});
+
+const refStyles = StyleSheet.create({
+  section: { gap: Spacing.sm },
+  codeRow: { alignItems: 'center', gap: 4 },
+  codeLabel: { fontSize: 12 },
+  code: { fontSize: 24, fontWeight: '900', letterSpacing: 2 },
+  shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 11,
+    borderRadius: Radius.full,
+  },
+  shareBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  divider: { height: 1, marginVertical: Spacing.xs },
+  redeemLabel: { fontSize: 13, lineHeight: 19, textAlign: 'center' },
+  inputRow: { flexDirection: 'row', gap: Spacing.sm },
+  input: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: Radius.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    fontSize: 16,
+    fontWeight: '700',
+    letterSpacing: 1,
+  },
+  redeemBtn: {
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 10,
+    borderRadius: Radius.md,
+    justifyContent: 'center',
+  },
+  redeemBtnText: { fontSize: 14, fontWeight: '700' },
+  alreadyPremium: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
+  trialBadge: { fontSize: 13, fontWeight: '700', textAlign: 'center' },
 });

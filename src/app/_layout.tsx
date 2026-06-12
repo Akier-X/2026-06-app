@@ -21,6 +21,7 @@ import { useAppStore } from '@/store/useAppStore';
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const setPremium = useAppStore((s) => s.setPremium);
+  const checkTrialExpiry = useAppStore((s) => s.checkTrialExpiry);
   const completeHabit = useAppStore((s) => s.completeHabit);
   const habits = useAppStore((s) => s.habits);
   const completions = useAppStore((s) => s.completions);
@@ -28,6 +29,7 @@ export default function RootLayout() {
   const profile = useAppStore((s) => s.profile);
 
   useEffect(() => {
+    checkTrialExpiry();
     (async () => {
       try {
         await initPurchases();
@@ -38,7 +40,7 @@ export default function RootLayout() {
       }
       await initAds();
     })();
-  }, [setPremium]);
+  }, [setPremium, checkTrialExpiry]);
 
   useEffect(() => {
     (async () => {

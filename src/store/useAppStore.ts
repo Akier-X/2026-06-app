@@ -8,6 +8,12 @@ import type { ChatMessage, Habit, MoodValue, UserProfile } from '@/types';
 export const FREE_HABIT_LIMIT = 3;
 export const FREE_DAILY_COACH_MESSAGES = 5;
 
+function generateReferralCode(): string {
+  const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
+  const pick = () => chars[Math.floor(Math.random() * chars.length)];
+  return `${pick()}${pick()}${pick()}${pick()}-${pick()}${pick()}${pick()}${pick()}`;
+}
+
 interface AppState {
   profile: UserProfile;
   habits: Habit[];
@@ -19,6 +25,12 @@ interface AppState {
   coachUsage: { date: string; count: number };
   isPremium: boolean;
   seenMilestones: string[];
+  /** 紹介コード（このユーザーが友達に渡すコード） */
+  referralCode: string;
+  /** 招待コードによる無料トライアル期限（ISO date string, null = トライアルなし） */
+  freeTrialUntil: string | null;
+  /** このデバイスで使用済みの招待コード一覧 */
+  redeemedCodes: string[];
 
   completeOnboarding: (name: string, goal: string) => void;
   addHabit: (name: string, emoji: string) => void;
@@ -37,6 +49,10 @@ interface AppState {
   coachMessagesLeftToday: () => number;
   setPremium: (value: boolean) => void;
   markMilestoneSeen: (key: string) => void;
+  /** 招待コードを使用してトライアルを開始する */
+  redeemReferralCode: (code: string) => 'ok' | 'already_redeemed' | 'invalid';
+  /** アプリ起動時にトライアル有効期限を確認し、切れていれば解除する */
+  checkTrialExpiry: () => void;
   resetAll: () => void;
 }
 
@@ -49,6 +65,9 @@ const initialData = {
   coachUsage: { date: '', count: 0 },
   isPremium: false,
   seenMilestones: [] as string[],
+  referralCode: generateReferralCode(),
+  freeTrialUntil: null as string | null,
+  redeemedCodes: [] as string[],
 };
 
 export function newId(): string {
@@ -151,7 +170,30 @@ export const useAppStore = create<AppState>()(
       markMilestoneSeen: (key) =>
         set((s) => ({ seenMilestones: [...s.seenMilestones, key] })),
 
-      resetAll: () => set({ ...initialData }),
+      redeemReferralCode: (code) => {
+        const s = get();
+        const normalized = code.trim().toUpperCase();
+        if (!/^[A-Z2-9]{4}-[A-Z2-9]{4}$/.test(normalized)) return 'invalid';
+        if (s.redeemedCodes.includes(normalized)) return 'already_redeemed';
+        const trialEnd = new Date();
+        trialEnd.setDate(trialEnd.getDate() + 7);
+        set({
+          isPremium: true,
+          freeTrialUntil: trialEnd.toISOString(),
+          redeemedCodes: [...s.redeemedCodes, normalized],
+        });
+        return 'ok';
+      },
+
+      checkTrialExpiry: () => {
+        const s = get();
+        if (!s.freeTrialUntil) return;
+        if (new Date(s.freeTrialUntil) <= new Date()) {
+          set({ isPremium: false, freeTrialUntil: null });
+        }
+      },
+
+      resetAll: () => set({ ...initialData, referralCode: get().referralCode }),
     }),
     {
       name: 'kokoro-coach-store',
