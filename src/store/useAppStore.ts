@@ -18,6 +18,7 @@ interface AppState {
   chat: ChatMessage[];
   coachUsage: { date: string; count: number };
   isPremium: boolean;
+  seenMilestones: string[];
 
   completeOnboarding: (name: string, goal: string) => void;
   addHabit: (name: string, emoji: string) => void;
@@ -29,6 +30,7 @@ interface AppState {
   consumeCoachMessage: () => boolean;
   coachMessagesLeftToday: () => number;
   setPremium: (value: boolean) => void;
+  markMilestoneSeen: (key: string) => void;
   resetAll: () => void;
 }
 
@@ -40,6 +42,7 @@ const initialData = {
   chat: [] as ChatMessage[],
   coachUsage: { date: '', count: 0 },
   isPremium: false,
+  seenMilestones: [] as string[],
 };
 
 export function newId(): string {
@@ -98,6 +101,9 @@ export const useAppStore = create<AppState>()(
       },
 
       setPremium: (value) => set({ isPremium: value }),
+
+      markMilestoneSeen: (key) =>
+        set((s) => ({ seenMilestones: [...s.seenMilestones, key] })),
 
       resetAll: () => set({ ...initialData }),
     }),

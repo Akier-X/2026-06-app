@@ -1,8 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -11,7 +11,6 @@ import {
 } from 'react-native';
 
 import { PrimaryButton } from '@/components/ui';
-import { PRIVACY_URL, TERMS_URL } from '@/constants/legal';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import {
   fetchPlans,
@@ -22,10 +21,11 @@ import {
 import { useAppStore } from '@/store/useAppStore';
 
 const FEATURES = [
-  { emoji: '♾️', text: '習慣を無制限に登録' },
-  { emoji: '💬', text: 'AIコーチと無制限にチャット' },
-  { emoji: '📊', text: '詳細な統計とふりかえり' },
-  { emoji: '🌙', text: '今後の新機能もすべて利用可能' },
+  { icon: 'infinite-outline' as const, text: '習慣を無制限に登録', sub: '無料は3個まで' },
+  { icon: 'chatbubble-ellipses-outline' as const, text: 'AIコーチと無制限にチャット', sub: '無料は1日5回まで' },
+  { icon: 'bar-chart-outline' as const, text: '気分×習慣の相関分析', sub: 'AIがあなただけのパターンを発見' },
+  { icon: 'calendar-outline' as const, text: '曜日別パターン分析', sub: '過去4週間のデータを解析' },
+  { icon: 'sparkles-outline' as const, text: '今後の新機能をすべて先行解放', sub: 'アップデートのたびにさらに便利に' },
 ];
 
 export default function PaywallScreen() {
@@ -58,7 +58,6 @@ export default function PaywallScreen() {
         router.back();
       }
     } catch (e: unknown) {
-      // RevenueCat throws with userCancelled=true when the user closes the sheet.
       const cancelled =
         typeof e === 'object' && e !== null && 'userCancelled' in e && (e as { userCancelled?: boolean }).userCancelled;
       if (!cancelled) {
@@ -87,51 +86,94 @@ export default function PaywallScreen() {
     }
   };
 
+  const annualPlan = plans.find((p) => p.period === 'annual');
+  const monthlyPlan = plans.find((p) => p.period === 'monthly');
+
   return (
     <ScrollView
       style={{ backgroundColor: c.background }}
       contentContainerStyle={styles.content}>
+
+      {/* ヘッダー */}
       <Text style={styles.hero}>⭐️</Text>
       <Text style={[styles.title, { color: c.text }]}>ココロコーチ プレミアム</Text>
       <Text style={[styles.subtitle, { color: c.textSecondary }]}>
-        習慣づくりを、もっと自由に。
+        習慣と気分を分析して、あなただけのパターンを発見。
       </Text>
 
-      <View style={styles.features}>
-        {FEATURES.map((f) => (
-          <View key={f.text} style={styles.featureRow}>
-            <Text style={styles.featureEmoji}>{f.emoji}</Text>
-            <Text style={[styles.featureText, { color: c.text }]}>{f.text}</Text>
+      {/* 機能リスト */}
+      <View style={[styles.featuresCard, { backgroundColor: c.card, borderColor: c.border }]}>
+        {FEATURES.map((f, i) => (
+          <View
+            key={f.text}
+            style={[
+              styles.featureRow,
+              i < FEATURES.length - 1 && { borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: c.border },
+            ]}>
+            <View style={[styles.featureIconWrap, { backgroundColor: c.primarySoft }]}>
+              <Ionicons name={f.icon} size={18} color={c.primary} />
+            </View>
+            <View style={styles.featureBody}>
+              <Text style={[styles.featureText, { color: c.text }]}>{f.text}</Text>
+              <Text style={[styles.featureSub, { color: c.textSecondary }]}>{f.sub}</Text>
+            </View>
+            <Ionicons name="checkmark-circle" size={20} color={c.success} />
           </View>
         ))}
       </View>
 
-      {plans.map((p) => {
-        const isSelected = selected === p.id;
-        return (
+      {/* プラン選択 */}
+      <View style={styles.plans}>
+        {/* 年額（推奨） */}
+        {annualPlan && (
           <Pressable
-            key={p.id}
-            onPress={() => setSelected(p.id)}
+            onPress={() => setSelected(annualPlan.id)}
+            style={[
+              styles.plan,
+              styles.planAnnual,
+              {
+                backgroundColor: selected === annualPlan.id ? c.primarySoft : c.card,
+                borderColor: selected === annualPlan.id ? c.primary : c.border,
+              },
+            ]}>
+            <View style={[styles.recommendBadge, { backgroundColor: c.primary }]}>
+              <Text style={styles.recommendText}>おすすめ</Text>
+            </View>
+            <View style={styles.planHeader}>
+              <Text style={[styles.planTitle, { color: c.text }]}>{annualPlan.title}</Text>
+              <View style={[styles.saveBadge, { backgroundColor: c.accent }]}>
+                <Text style={styles.saveBadgeText}>34%おトク</Text>
+              </View>
+            </View>
+            <Text style={[styles.planPrice, { color: c.text }]}>{annualPlan.priceString}</Text>
+            {annualPlan.monthlyEquivalent && (
+              <Text style={[styles.planMonthly, { color: c.primary }]}>
+                {annualPlan.monthlyEquivalent}
+              </Text>
+            )}
+          </Pressable>
+        )}
+
+        {/* 月額 */}
+        {monthlyPlan && (
+          <Pressable
+            onPress={() => setSelected(monthlyPlan.id)}
             style={[
               styles.plan,
               {
-                backgroundColor: isSelected ? c.primarySoft : c.card,
-                borderColor: isSelected ? c.primary : c.border,
+                backgroundColor: selected === monthlyPlan.id ? c.primarySoft : c.card,
+                borderColor: selected === monthlyPlan.id ? c.primary : c.border,
               },
             ]}>
             <View style={styles.planHeader}>
-              <Text style={[styles.planTitle, { color: c.text }]}>{p.title}</Text>
-              {p.period === 'annual' && (
-                <View style={[styles.badge, { backgroundColor: c.accent }]}>
-                  <Text style={styles.badgeText}>34%おトク</Text>
-                </View>
-              )}
+              <Text style={[styles.planTitle, { color: c.text }]}>{monthlyPlan.title}</Text>
             </View>
-            <Text style={[styles.planPrice, { color: c.textSecondary }]}>{p.priceString}</Text>
+            <Text style={[styles.planPrice, { color: c.text }]}>{monthlyPlan.priceString}</Text>
           </Pressable>
-        );
-      })}
+        )}
+      </View>
 
+      {/* CTA */}
       <PrimaryButton
         label="プレミアムをはじめる"
         onPress={onPurchase}
@@ -144,15 +186,16 @@ export default function PaywallScreen() {
         <Text style={[styles.restore, { color: c.primary }]}>購入を復元する</Text>
       </Pressable>
 
+      {/* 法務 */}
       <Text style={[styles.legal, { color: c.textSecondary }]}>
-        お支払いはApple IDアカウントに請求されます。サブスクリプションは期間終了の24時間前までに解約しない限り自動更新され、更新料金は期間終了前の24時間以内に請求されます。購入後はApp Storeのアカウント設定からいつでも管理・解約できます。
+        お支払いはGoogleアカウント(Google Play)に請求されます。サブスクリプションは期間終了前に解約しない限り自動更新されます。購入後はGoogle Playのアカウント設定からいつでも管理・解約できます。
       </Text>
       <View style={styles.legalLinks}>
-        <Pressable onPress={() => Linking.openURL(TERMS_URL)}>
+        <Pressable onPress={() => router.push('/legal?type=terms')}>
           <Text style={[styles.legalLink, { color: c.textSecondary }]}>利用規約</Text>
         </Pressable>
         <Text style={{ color: c.textSecondary }}> · </Text>
-        <Pressable onPress={() => Linking.openURL(PRIVACY_URL)}>
+        <Pressable onPress={() => router.push('/legal?type=privacy')}>
           <Text style={[styles.legalLink, { color: c.textSecondary }]}>プライバシーポリシー</Text>
         </Pressable>
       </View>
@@ -162,31 +205,74 @@ export default function PaywallScreen() {
 
 const styles = StyleSheet.create({
   content: { padding: Spacing.lg, alignItems: 'stretch' },
+
+  // ヘッダー
   hero: { fontSize: 48, textAlign: 'center', marginTop: Spacing.md },
   title: { fontSize: 24, fontWeight: '800', textAlign: 'center', marginTop: Spacing.sm },
-  subtitle: { fontSize: 14, textAlign: 'center', marginTop: Spacing.xs },
-  features: { marginVertical: Spacing.lg, gap: Spacing.sm },
-  featureRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  featureEmoji: { fontSize: 20 },
-  featureText: { fontSize: 15, fontWeight: '600' },
+  subtitle: { fontSize: 14, textAlign: 'center', marginTop: Spacing.xs, lineHeight: 20, marginBottom: Spacing.lg },
+
+  // 機能リスト
+  featuresCard: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderRadius: Radius.md,
+    overflow: 'hidden',
+    marginBottom: Spacing.lg,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    paddingVertical: 12,
+  },
+  featureIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  featureBody: { flex: 1 },
+  featureText: { fontSize: 14, fontWeight: '600' },
+  featureSub: { fontSize: 11, marginTop: 1 },
+
+  // プラン
+  plans: { gap: Spacing.sm, marginBottom: Spacing.md },
   plan: {
     borderWidth: 2,
     borderRadius: Radius.md,
     padding: Spacing.md,
-    marginBottom: Spacing.sm,
+    position: 'relative',
   },
+  planAnnual: { paddingTop: Spacing.lg + 4 },
+  recommendBadge: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    alignItems: 'center',
+    paddingVertical: 3,
+    borderTopLeftRadius: Radius.md - 2,
+    borderTopRightRadius: Radius.md - 2,
+  },
+  recommendText: { color: '#fff', fontSize: 11, fontWeight: '800' },
   planHeader: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  planTitle: { fontSize: 16, fontWeight: '700' },
-  badge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
-  badgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
-  planPrice: { fontSize: 14, marginTop: Spacing.xs },
-  cta: { marginTop: Spacing.md },
+  planTitle: { fontSize: 16, fontWeight: '700', flex: 1 },
+  saveBadge: { borderRadius: Radius.full, paddingHorizontal: 8, paddingVertical: 2 },
+  saveBadgeText: { color: '#fff', fontSize: 11, fontWeight: '800' },
+  planPrice: { fontSize: 18, fontWeight: '800', marginTop: 4 },
+  planMonthly: { fontSize: 13, fontWeight: '600', marginTop: 2 },
+
+  // CTA
+  cta: { marginTop: Spacing.sm },
   restore: {
     textAlign: 'center',
     marginTop: Spacing.md,
     fontSize: 14,
     fontWeight: '600',
   },
+
+  // 法務
   legal: { fontSize: 11, lineHeight: 16, marginTop: Spacing.lg },
   legalLinks: {
     flexDirection: 'row',

@@ -24,6 +24,8 @@ export interface PlanOption {
   id: string;
   title: string;
   priceString: string;
+  /** Monthly equivalent display string for annual plans (e.g. "月々¥317"). */
+  monthlyEquivalent?: string;
   period: 'monthly' | 'annual';
   /** Native RevenueCat package — undefined in mock mode. */
   rcPackage?: unknown;
@@ -47,7 +49,7 @@ export async function fetchPlans(): Promise<PlanOption[]> {
   if (isMock) {
     return [
       { id: 'mock-monthly', title: '月額プラン', priceString: '¥480/月', period: 'monthly' },
-      { id: 'mock-annual', title: '年額プラン', priceString: '¥3,800/年', period: 'annual' },
+      { id: 'mock-annual', title: '年額プラン', priceString: '¥3,800/年', period: 'annual', monthlyEquivalent: '月々¥317' },
     ];
   }
   const Purchases = getPurchases();
@@ -65,10 +67,13 @@ export async function fetchPlans(): Promise<PlanOption[]> {
     });
   }
   if (current.annual) {
+    const annualPrice: number = current.annual.product.price;
+    const monthly = Math.round(annualPrice / 12);
     plans.push({
       id: current.annual.identifier,
       title: '年額プラン',
       priceString: `${current.annual.product.priceString}/年`,
+      monthlyEquivalent: `月々¥${monthly.toLocaleString()}`,
       period: 'annual',
       rcPackage: current.annual,
     });

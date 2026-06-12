@@ -1,7 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
+import { useCallback, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
+import MilestoneModal, { MILESTONE_DAYS, type MilestoneData } from '@/components/MilestoneModal';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import { calcStreak, todayKey } from '@/lib/dates';
@@ -23,12 +25,38 @@ export default function TodayScreen() {
   const completions = useAppStore((s) => s.completions);
   const moods = useAppStore((s) => s.moods);
   const isPremium = useAppStore((s) => s.isPremium);
+  const seenMilestones = useAppStore((s) => s.seenMilestones);
   const toggleCompletion = useAppStore((s) => s.toggleCompletion);
+  const markMilestoneSeen = useAppStore((s) => s.markMilestoneSeen);
   const setMood = useAppStore((s) => s.setMood);
+
+  const [activeMilestone, setActiveMilestone] = useState<MilestoneData | null>(null);
 
   const today = todayKey();
   const doneToday = completions[today] ?? [];
   const todayMood = moods[today];
+
+  const checkMilestone = useCallback(
+    (habitId: string) => {
+      const habit = habits.find((h) => h.id === habitId);
+      if (!habit) return;
+      const streak = calcStreak((key) => (completions[key] ?? []).includes(habitId));
+      for (const days of MILESTONE_DAYS) {
+        const milestoneKey = `${habitId}-${days}`;
+        if (streak === days && !seenMilestones.includes(milestoneKey)) {
+          setActiveMilestone({ key: milestoneKey, days, habitName: habit.name, habitEmoji: habit.emoji });
+          return;
+        }
+      }
+    },
+    [habits, completions, seenMilestones],
+  );
+
+  const onToggle = (habitId: string) => {
+    toggleCompletion(habitId);
+    // Check milestone after toggle (streak recalculates with new state)
+    setTimeout(() => checkMilestone(habitId), 50);
+  };
 
   const onAddHabit = () => {
     if (!isPremium && habits.length >= FREE_HABIT_LIMIT) {
@@ -39,6 +67,7 @@ export default function TodayScreen() {
   };
 
   return (
+    <>
     <ScrollView
       style={{ backgroundColor: c.background }}
       contentContainerStyle={styles.content}>
@@ -84,7 +113,7 @@ export default function TodayScreen() {
         const done = doneToday.includes(h.id);
         const streak = calcStreak((key) => (completions[key] ?? []).includes(h.id));
         return (
-          <Pressable key={h.id} onPress={() => toggleCompletion(h.id)}>
+          <Pressable key={h.id} onPress={() => onToggle(h.id)}>
             <Card style={styles.habitCard}>
               <Text style={styles.habitEmoji}>{h.emoji}</Text>
               <View style={styles.habitBody}>
@@ -123,6 +152,15 @@ export default function TodayScreen() {
         </Text>
       </Pressable>
     </ScrollView>
+
+    <MilestoneModal
+      milestone={activeMilestone}
+      onClose={() => {
+        if (activeMilestone) markMilestoneSeen(activeMilestone.key);
+        setActiveMilestone(null);
+      }}
+    />
+    </>
   );
 }
 

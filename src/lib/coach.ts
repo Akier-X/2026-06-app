@@ -48,8 +48,8 @@ export async function sendToCoach(history: ChatMessage[]): Promise<string> {
   if (!COACH_API_URL) {
     // デフォルト: ローカルエンジン(API不使用)
     const lastUserMessage = [...history].reverse().find((m) => m.role === 'user');
-    await new Promise((r) => setTimeout(r, 400)); // 考えている間(うちあわせ感)
-    return generateLocalCoachReply(lastUserMessage?.text ?? '');
+    await new Promise((r) => setTimeout(r, 500)); // 自然な「考え中」演出
+    return generateLocalCoachReply(lastUserMessage?.text ?? '', history);
   }
 
   const context = buildCoachContext();

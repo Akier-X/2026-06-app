@@ -40,6 +40,10 @@ export default function RootLayout() {
           name="feedback"
           options={{ presentation: 'modal', title: 'ご意見・お問い合わせ' }}
         />
+        <Stack.Screen
+          name="legal"
+          options={{ presentation: 'modal', title: '法的情報' }}
+        />
       </Stack>
     </ThemeProvider>
   );

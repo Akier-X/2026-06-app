@@ -3,7 +3,6 @@ import { useState } from 'react';
 import {
   Alert,
   KeyboardAvoidingView,
-  Linking,
   Platform,
   Pressable,
   ScrollView,
@@ -13,14 +12,8 @@ import {
 } from 'react-native';
 
 import { PrimaryButton, SectionTitle } from '@/components/ui';
-import { SUPPORT_EMAIL } from '@/constants/legal';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
-import {
-  buildFeedbackMailto,
-  isFeedbackServerConfigured,
-  submitFeedback,
-  type FeedbackCategory,
-} from '@/lib/feedback';
+import { submitFeedback, type FeedbackCategory } from '@/lib/feedback';
 
 const CATEGORIES: { id: FeedbackCategory; emoji: string; label: string }[] = [
   { id: 'bug', emoji: '🐞', label: '不具合' },
@@ -36,18 +29,9 @@ export default function FeedbackScreen() {
   const [contact, setContact] = useState('');
   const [sending, setSending] = useState(false);
 
-  const sendViaMail = () => {
-    Linking.openURL(buildFeedbackMailto(SUPPORT_EMAIL, { category, message }));
-  };
-
   const onSubmit = async () => {
     const text = message.trim();
     if (!text) return;
-
-    if (!isFeedbackServerConfigured()) {
-      sendViaMail();
-      return;
-    }
 
     setSending(true);
     try {
@@ -55,14 +39,7 @@ export default function FeedbackScreen() {
       Alert.alert('ありがとうございます!', 'いただいたご意見は今後のアップデートに活用させていただきます。');
       router.back();
     } catch {
-      Alert.alert(
-        '送信できませんでした',
-        '通信に失敗しました。メールで送信しますか?',
-        [
-          { text: 'キャンセル', style: 'cancel' },
-          { text: 'メールで送る', onPress: sendViaMail },
-        ],
-      );
+      Alert.alert('送信できませんでした', '通信に失敗しました。時間をおいて再度お試しください。');
     } finally {
       setSending(false);
     }

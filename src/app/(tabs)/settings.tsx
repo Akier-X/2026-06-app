@@ -1,10 +1,9 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 
 import { Card, SectionTitle } from '@/components/ui';
-import { PRIVACY_URL, TERMS_URL } from '@/constants/legal';
 import { Spacing, useThemeColors } from '@/constants/theme';
 import { restorePurchases } from '@/lib/purchases';
 import { useAppStore } from '@/store/useAppStore';
@@ -91,11 +90,11 @@ export default function SettingsScreen() {
         label="ご意見・お問い合わせ"
         onPress={() => router.push('/feedback')}
       />
-      <Row icon="document-text-outline" label="利用規約" onPress={() => Linking.openURL(TERMS_URL)} />
+      <Row icon="document-text-outline" label="利用規約" onPress={() => router.push('/legal?type=terms')} />
       <Row
         icon="shield-checkmark-outline"
         label="プライバシーポリシー"
-        onPress={() => Linking.openURL(PRIVACY_URL)}
+        onPress={() => router.push('/legal?type=privacy')}
       />
 
       <SectionTitle>データ</SectionTitle>

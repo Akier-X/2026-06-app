@@ -14,10 +14,6 @@ export interface FeedbackInput {
   contact?: string;
 }
 
-export function isFeedbackServerConfigured(): boolean {
-  return COACH_API_URL.length > 0;
-}
-
 /**
  * フィードバックをサーバーへ送信する。
  * サーバー側で feedback.jsonl に構造化保存され、scripts/fetch-feedback.mjs で
@@ -47,17 +43,3 @@ export async function submitFeedback(input: FeedbackInput): Promise<void> {
   }
 }
 
-/** サーバー未設定時のフォールバック: メール本文を組み立てる。 */
-export function buildFeedbackMailto(email: string, input: FeedbackInput): string {
-  const categoryLabel: Record<FeedbackCategory, string> = {
-    bug: '不具合報告',
-    idea: '機能の要望',
-    question: '質問',
-    other: 'その他',
-  };
-  const subject = encodeURIComponent(`[ココロコーチ] ${categoryLabel[input.category]}`);
-  const body = encodeURIComponent(
-    `${input.message}\n\n---\nversion: ${Constants.expoConfig?.version ?? ''} / ${Platform.OS}`,
-  );
-  return `mailto:${email}?subject=${subject}&body=${body}`;
-}
