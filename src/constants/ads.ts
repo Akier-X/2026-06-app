@@ -1,7 +1,5 @@
-// 本番リリース前に実際のAdMob IDに差し替える
-// 取得方法: docs/admob-setup.md を参照
 export const ADS = {
-  ANDROID_APP_ID: 'ca-app-pub-3940256099942544~3347511713', // テストID
-  BANNER_ANDROID: 'ca-app-pub-3940256099942544/6300978111', // テストID
-  REWARDED_ANDROID: 'ca-app-pub-3940256099942544/5224354917', // テストID
+  ANDROID_APP_ID: 'ca-app-pub-3076522403289369~9043899462',
+  BANNER_ANDROID: 'ca-app-pub-3076522403289369/7936002787',
+  REWARDED_ANDROID: 'ca-app-pub-3076522403289369/1969360235',
 } as const;
