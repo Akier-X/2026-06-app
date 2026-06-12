@@ -7,7 +7,7 @@ import AdBanner from '@/components/AdBanner';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import { lastNDateKeys, weekdayLabel } from '@/lib/dates';
-import { showRewardedAd } from '@/lib/ads';
+import { checkInterstitialAllowed, showInterstitialAd, showRewardedAd } from '@/lib/ads';
 import { generateMonthlyReport } from '@/lib/monthlyReport';
 import { generateWeeklyReport } from '@/lib/weeklyReport';
 import { useAppStore } from '@/store/useAppStore';
@@ -70,6 +70,15 @@ export default function StatsScreen() {
   const [period, setPeriod] = useState<Period>('week');
   const [monthlyUnlocked, setMonthlyUnlocked] = useState(false);
   const [loadingAd, setLoadingAd] = useState(false);
+  const [detailUnlocked, setDetailUnlocked] = useState(false);
+  const [loadingDetailAd, setLoadingDetailAd] = useState(false);
+
+  // ユーザー成熟度チェック（7日以上記録があるユーザーのみバナー・インタースティシャルを表示）
+  const allDays = { ...completions };
+  const totalDaysWithData = Object.keys(allDays).filter(
+    (k) => (completions[k]?.length ?? 0) > 0 || moods[k],
+  ).length;
+  const isNewUser = totalDaysWithData < 7;
 
   const total = habits.length;
   const week = lastNDateKeys(7);
@@ -92,6 +101,31 @@ export default function StatsScreen() {
         Alert.alert('広告を読み込めませんでした', '時間をおいて再度お試しください。');
       },
     });
+  };
+
+  const onWatchAdForDetail = () => {
+    setLoadingDetailAd(true);
+    showRewardedAd({
+      onRewarded: () => { setDetailUnlocked(true); setLoadingDetailAd(false); },
+      onFailed: () => {
+        setLoadingDetailAd(false);
+        Alert.alert('広告を読み込めませんでした', '時間をおいて再度お試しください。');
+      },
+    });
+  };
+
+  const onAnnualReport = async () => {
+    if (!isPremium && !isNewUser) {
+      const allowed = await checkInterstitialAllowed();
+      if (allowed) {
+        showInterstitialAd({
+          onClosed: () => router.push('/annual-report'),
+          onFailed: () => router.push('/annual-report'),
+        });
+        return;
+      }
+    }
+    router.push('/annual-report');
   };
 
   const weeklyReport = generateWeeklyReport(habits, completions, moods);
@@ -222,7 +256,7 @@ export default function StatsScreen() {
       {/* 詳細分析 */}
       <SectionTitle>詳細分析</SectionTitle>
       <View style={styles.premiumSection}>
-        <View style={[styles.premiumContent, !isPremium && styles.blurred]}>
+        <View style={[styles.premiumContent, !isPremium && !detailUnlocked && styles.blurred]}>
           {activeReport.dayPatterns.length > 0 && (
             <Card style={styles.dayPatternCard}>
               <Text style={[styles.analysisTitle, { color: c.text }]}>
@@ -283,8 +317,24 @@ export default function StatsScreen() {
             </Card>
           )}
         </View>
-        {!isPremium && (
-          <PremiumLock label="気分×習慣の相関分析、曜日パターンを確認できます" />
+        {!isPremium && !detailUnlocked && (
+          <View style={[styles.lockOverlay, { backgroundColor: c.card + 'E8' }]}>
+            <Ionicons name="lock-closed" size={20} color={c.primary} />
+            <Text style={[styles.lockText, { color: c.text }]}>
+              気分×習慣の相関分析、曜日パターンを確認できます
+            </Text>
+            <Pressable
+              onPress={onWatchAdForDetail}
+              disabled={loadingDetailAd}
+              style={[styles.gateAdBtn, { backgroundColor: c.primary }]}>
+              <Text style={styles.gateAdBtnText}>
+                {loadingDetailAd ? '読み込み中...' : '広告を見て解放'}
+              </Text>
+            </Pressable>
+            <Pressable onPress={() => router.push('/paywall')}>
+              <Text style={[styles.lockSub, { color: c.primary }]}>プレミアムにアップグレード →</Text>
+            </Pressable>
+          </View>
         )}
       </View>
 
@@ -372,7 +422,7 @@ export default function StatsScreen() {
       {/* 年間レポート */}
       <SectionTitle>年間レポート</SectionTitle>
       <Pressable
-        onPress={() => router.push('/annual-report')}
+        onPress={onAnnualReport}
         style={styles.annualBtn}>
         <Text style={styles.annualEmoji}>🎊</Text>
         <View style={styles.annualBody}>
@@ -383,8 +433,8 @@ export default function StatsScreen() {
         </>
       )}
 
-      {/* バナー広告（無料ユーザーのみ） */}
-      {!isPremium && <AdBanner />}
+      {/* バナー広告（無料・7日以上記録のユーザーのみ） */}
+      {!isPremium && !isNewUser && <AdBanner />}
     </ScrollView>
   );
 }

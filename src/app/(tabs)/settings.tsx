@@ -3,6 +3,7 @@ import { router } from 'expo-router';
 import { useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
+import AdBanner from '@/components/AdBanner';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import {
@@ -72,6 +73,11 @@ export default function SettingsScreen() {
   const moods = useAppStore((s) => s.moods);
   const storeMoodReminderTime = useAppStore((s) => s.setMoodReminderTime);
   const storeWeeklyNotification = useAppStore((s) => s.setWeeklyNotification);
+
+  const totalDaysWithData = Object.keys(completions).filter(
+    (k) => (completions[k]?.length ?? 0) > 0 || moods[k],
+  ).length;
+  const showBanner = !isPremium && totalDaysWithData >= 7;
 
   const [restoring, setRestoring] = useState(false);
   const [moodReminderEnabled, setMoodReminderEnabled] = useState(!!profile.moodReminderTime);
@@ -278,6 +284,9 @@ export default function SettingsScreen() {
 
       <SectionTitle>データ</SectionTitle>
       <Row icon="trash-outline" label="データを初期化" onPress={onReset} danger />
+
+      {/* バナー広告（無料・7日以上記録のユーザーのみ） */}
+      {showBanner && <AdBanner />}
     </ScrollView>
   );
 }

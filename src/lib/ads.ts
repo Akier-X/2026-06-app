@@ -1,3 +1,4 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 import { ADS } from '@/constants/ads';
 
@@ -16,6 +17,10 @@ export function getAdsBannerUnitId(): string {
 
 export function getAdsRewardedUnitId(): string {
   return Platform.OS === 'ios' ? ADS.REWARDED_ANDROID : ADS.REWARDED_ANDROID;
+}
+
+export function getAdsInterstitialUnitId(): string {
+  return ADS.INTERSTITIAL_ANDROID;
 }
 
 export async function initAds(): Promise<void> {
@@ -66,4 +71,63 @@ export function showRewardedAd(opts: {
   }
 
   rewarded.load();
+}
+
+const INTERSTITIAL_LAST_DATE_KEY = '@ads-interstitial-last-date';
+
+export async function checkInterstitialAllowed(): Promise<boolean> {
+  try {
+    const lastDate = await AsyncStorage.getItem(INTERSTITIAL_LAST_DATE_KEY);
+    if (!lastDate) return true;
+    const now = new Date();
+    const last = new Date(lastDate);
+    return now.getFullYear() !== last.getFullYear() || now.getMonth() !== last.getMonth();
+  } catch {
+    return true;
+  }
+}
+
+async function recordInterstitialShown(): Promise<void> {
+  try {
+    await AsyncStorage.setItem(INTERSTITIAL_LAST_DATE_KEY, new Date().toISOString());
+  } catch {
+    // ignore
+  }
+}
+
+export function showInterstitialAd(opts: {
+  onClosed: () => void;
+  onFailed: () => void;
+}): void {
+  if (!adsModule) {
+    // Expo Go: スキップして次の画面へ
+    opts.onClosed();
+    return;
+  }
+  const { InterstitialAd, AdEventType } = adsModule;
+  const interstitial = InterstitialAd.createForAdRequest(getAdsInterstitialUnitId(), {
+    requestNonPersonalizedAdsOnly: false,
+  });
+
+  const unsubLoad = interstitial.addAdEventListener(AdEventType.LOADED, async () => {
+    await recordInterstitialShown();
+    interstitial.show();
+  });
+  const unsubClosed = interstitial.addAdEventListener(AdEventType.CLOSED, () => {
+    opts.onClosed();
+    cleanup();
+  });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const unsubError = interstitial.addAdEventListener('error' as any, () => {
+    opts.onFailed();
+    cleanup();
+  });
+
+  function cleanup() {
+    unsubLoad();
+    unsubClosed();
+    unsubError();
+  }
+
+  interstitial.load();
 }
