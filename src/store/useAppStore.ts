@@ -24,6 +24,9 @@ interface AppState {
   addHabit: (name: string, emoji: string) => void;
   removeHabit: (id: string) => void;
   toggleCompletion: (habitId: string, key?: string) => void;
+  completeHabit: (habitId: string, key?: string) => void;
+  updateHabitReminder: (habitId: string, time: string | null) => void;
+  setMoodReminderTime: (time: string | null) => void;
   setMood: (mood: MoodValue, key?: string) => void;
   appendChat: (message: ChatMessage) => void;
   /** Returns false when the free-tier daily message quota is exhausted. */
@@ -76,6 +79,27 @@ export const useAppStore = create<AppState>()(
             : [...done, habitId];
           return { completions: { ...s.completions, [key]: next } };
         }),
+
+      completeHabit: (habitId, key = todayKey()) =>
+        set((s) => {
+          const done = s.completions[key] ?? [];
+          if (done.includes(habitId)) return s;
+          return { completions: { ...s.completions, [key]: [...done, habitId] } };
+        }),
+
+      updateHabitReminder: (habitId, time) =>
+        set((s) => ({
+          habits: s.habits.map((h) =>
+            h.id === habitId
+              ? { ...h, reminderTime: time ?? undefined }
+              : h,
+          ),
+        })),
+
+      setMoodReminderTime: (time) =>
+        set((s) => ({
+          profile: { ...s.profile, moodReminderTime: time ?? undefined },
+        })),
 
       setMood: (mood, key = todayKey()) =>
         set((s) => ({ moods: { ...s.moods, [key]: mood } })),

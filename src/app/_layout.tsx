@@ -1,14 +1,25 @@
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
-import { Stack } from 'expo-router';
+import * as Notifications from 'expo-notifications';
+import { router, Stack } from 'expo-router';
 import { useEffect } from 'react';
 import { useColorScheme } from 'react-native';
 
+import {
+  initNotifications,
+  NOTIF_ACTION_COMPLETE,
+  requestNotificationPermissions,
+  rescheduleAllHabitReminders,
+  scheduleMoodReminder,
+} from '@/lib/notifications';
 import { checkPremium, initPurchases } from '@/lib/purchases';
 import { useAppStore } from '@/store/useAppStore';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
   const setPremium = useAppStore((s) => s.setPremium);
+  const completeHabit = useAppStore((s) => s.completeHabit);
+  const habits = useAppStore((s) => s.habits);
+  const profile = useAppStore((s) => s.profile);
 
   useEffect(() => {
     (async () => {
@@ -21,6 +32,36 @@ export default function RootLayout() {
       }
     })();
   }, [setPremium]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const granted = await requestNotificationPermissions();
+        if (!granted) return;
+        await initNotifications();
+        await rescheduleAllHabitReminders(habits);
+        if (profile.moodReminderTime) {
+          await scheduleMoodReminder(profile.moodReminderTime);
+        }
+        // Handle the notification that launched the app from killed state
+        const lastResponse = await Notifications.getLastNotificationResponseAsync();
+        if (lastResponse) {
+          handleNotificationResponse(lastResponse, completeHabit);
+        }
+      } catch {
+        // Notifications not available in current environment
+      }
+    })();
+    // Run only once on mount; habits/profile changes are handled via habit-settings UI
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const sub = Notifications.addNotificationResponseReceivedListener((response) => {
+      handleNotificationResponse(response, completeHabit);
+    });
+    return () => sub.remove();
+  }, [completeHabit]);
 
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
@@ -37,6 +78,10 @@ export default function RootLayout() {
           options={{ presentation: 'modal', title: '習慣を追加' }}
         />
         <Stack.Screen
+          name="habit-settings"
+          options={{ presentation: 'modal', title: '習慣の設定' }}
+        />
+        <Stack.Screen
           name="feedback"
           options={{ presentation: 'modal', title: 'ご意見・お問い合わせ' }}
         />
@@ -47,4 +92,20 @@ export default function RootLayout() {
       </Stack>
     </ThemeProvider>
   );
+}
+
+function handleNotificationResponse(
+  response: Notifications.NotificationResponse,
+  completeHabit: (habitId: string) => void,
+) {
+  const data = response.notification.request.content.data as Record<string, unknown>;
+  const { actionIdentifier } = response;
+
+  if (actionIdentifier === NOTIF_ACTION_COMPLETE && data.habitId) {
+    completeHabit(data.habitId as string);
+  } else if (actionIdentifier === Notifications.DEFAULT_ACTION_IDENTIFIER) {
+    if (data.type === 'mood') {
+      router.push('/(tabs)/');
+    }
+  }
 }

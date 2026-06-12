@@ -3,6 +3,7 @@ export interface Habit {
   name: string;
   emoji: string;
   createdAt: string; // ISO date
+  reminderTime?: string; // HH:MM format, undefined = no reminder
 }
 
 export interface ChatMessage {
@@ -18,6 +19,7 @@ export interface UserProfile {
   name: string;
   goal: string;
   onboardingDone: boolean;
+  moodReminderTime?: string; // HH:MM, undefined = disabled
 }
 
 export interface CoachContext {

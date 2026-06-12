@@ -113,7 +113,10 @@ export default function TodayScreen() {
         const done = doneToday.includes(h.id);
         const streak = calcStreak((key) => (completions[key] ?? []).includes(h.id));
         return (
-          <Pressable key={h.id} onPress={() => onToggle(h.id)}>
+          <Pressable
+            key={h.id}
+            onPress={() => onToggle(h.id)}
+            onLongPress={() => router.push(`/habit-settings?habitId=${h.id}`)}>
             <Card style={styles.habitCard}>
               <Text style={styles.habitEmoji}>{h.emoji}</Text>
               <View style={styles.habitBody}>
@@ -130,6 +133,11 @@ export default function TodayScreen() {
                 </Text>
                 {streak > 0 && (
                   <Text style={[styles.streak, { color: c.accent }]}>🔥 {streak}日連続</Text>
+                )}
+                {h.reminderTime && (
+                  <Text style={[styles.reminderBadge, { color: c.textSecondary }]}>
+                    🔔 {h.reminderTime}
+                  </Text>
                 )}
               </View>
               <Ionicons
@@ -186,6 +194,7 @@ const styles = StyleSheet.create({
   habitBody: { flex: 1 },
   habitName: { fontSize: 16, fontWeight: '600' },
   streak: { fontSize: 12, marginTop: 2, fontWeight: '700' },
+  reminderBadge: { fontSize: 11, marginTop: 2 },
   addButton: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -1,19 +1,71 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useState } from 'react';
-import { Alert, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { Alert, Pressable, ScrollView, StyleSheet, Switch, Text, View } from 'react-native';
 
 import { Card, SectionTitle } from '@/components/ui';
-import { Spacing, useThemeColors } from '@/constants/theme';
+import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import { cancelMoodReminder, scheduleMoodReminder } from '@/lib/notifications';
 import { restorePurchases } from '@/lib/purchases';
 import { useAppStore } from '@/store/useAppStore';
+
+function TimePicker({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (t: string) => void;
+}) {
+  const c = useThemeColors();
+  const [h, m] = value.split(':').map(Number);
+  const pad = (n: number) => String(n).padStart(2, '0');
+  const setH = (next: number) => onChange(`${pad((next + 24) % 24)}:${pad(m)}`);
+  const setM = (next: number) => onChange(`${pad(h)}:${pad((next + 60) % 60)}`);
+
+  return (
+    <View style={tpStyles.row}>
+      <View style={tpStyles.col}>
+        <Pressable onPress={() => setH(h + 1)} style={tpStyles.btn}>
+          <Ionicons name="chevron-up" size={22} color={c.primary} />
+        </Pressable>
+        <Text style={[tpStyles.num, { color: c.text }]}>{pad(h)}</Text>
+        <Pressable onPress={() => setH(h - 1)} style={tpStyles.btn}>
+          <Ionicons name="chevron-down" size={22} color={c.primary} />
+        </Pressable>
+      </View>
+      <Text style={[tpStyles.colon, { color: c.text }]}>:</Text>
+      <View style={tpStyles.col}>
+        <Pressable onPress={() => setM(m + 5)} style={tpStyles.btn}>
+          <Ionicons name="chevron-up" size={22} color={c.primary} />
+        </Pressable>
+        <Text style={[tpStyles.num, { color: c.text }]}>{pad(m - (m % 5))}</Text>
+        <Pressable onPress={() => setM(m - 5)} style={tpStyles.btn}>
+          <Ionicons name="chevron-down" size={22} color={c.primary} />
+        </Pressable>
+      </View>
+    </View>
+  );
+}
+
+const tpStyles = StyleSheet.create({
+  row: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md, justifyContent: 'center' },
+  col: { alignItems: 'center', gap: 2 },
+  btn: { padding: 4 },
+  num: { fontSize: 36, fontWeight: '800', minWidth: 48, textAlign: 'center' },
+  colon: { fontSize: 36, fontWeight: '800' },
+});
 
 export default function SettingsScreen() {
   const c = useThemeColors();
   const isPremium = useAppStore((s) => s.isPremium);
   const setPremium = useAppStore((s) => s.setPremium);
   const resetAll = useAppStore((s) => s.resetAll);
+  const profile = useAppStore((s) => s.profile);
+  const storeMoodReminderTime = useAppStore((s) => s.setMoodReminderTime);
+
   const [restoring, setRestoring] = useState(false);
+  const [moodReminderEnabled, setMoodReminderEnabled] = useState(!!profile.moodReminderTime);
+  const [moodReminderTime, setMoodReminderTime] = useState(profile.moodReminderTime ?? '20:00');
 
   const onRestore = async () => {
     setRestoring(true);
@@ -37,6 +89,25 @@ export default function SettingsScreen() {
       { text: 'キャンセル', style: 'cancel' },
       { text: '削除する', style: 'destructive', onPress: resetAll },
     ]);
+  };
+
+  const onToggleMoodReminder = async (enabled: boolean) => {
+    setMoodReminderEnabled(enabled);
+    if (enabled) {
+      await scheduleMoodReminder(moodReminderTime).catch(() => {});
+      storeMoodReminderTime(moodReminderTime);
+    } else {
+      await cancelMoodReminder().catch(() => {});
+      storeMoodReminderTime(null);
+    }
+  };
+
+  const onMoodTimeChange = async (time: string) => {
+    setMoodReminderTime(time);
+    if (moodReminderEnabled) {
+      await scheduleMoodReminder(time).catch(() => {});
+      storeMoodReminderTime(time);
+    }
   };
 
   const Row = ({
@@ -84,6 +155,38 @@ export default function SettingsScreen() {
         onPress={onRestore}
       />
 
+      {/* Notification settings */}
+      <SectionTitle>通知</SectionTitle>
+      <Card style={styles.notifSection}>
+        <View style={styles.notifRow}>
+          <View style={styles.notifLabel}>
+            <Text style={styles.notifEmoji}>😊</Text>
+            <View>
+              <Text style={[styles.notifTitle, { color: c.text }]}>気分チェック通知</Text>
+              <Text style={[styles.notifSub, { color: c.textSecondary }]}>
+                1日1回、気分を記録するリマインダー
+              </Text>
+            </View>
+          </View>
+          <Switch
+            value={moodReminderEnabled}
+            onValueChange={onToggleMoodReminder}
+            trackColor={{ false: c.border, true: c.primarySoft }}
+            thumbColor={moodReminderEnabled ? c.primary : c.textSecondary}
+          />
+        </View>
+
+        {moodReminderEnabled && (
+          <View style={[styles.timePickerContainer, { borderTopColor: c.border }]}>
+            <Text style={[styles.timePickerLabel, { color: c.textSecondary }]}>通知時刻</Text>
+            <TimePicker value={moodReminderTime} onChange={onMoodTimeChange} />
+          </View>
+        )}
+      </Card>
+      <Text style={[styles.notifHint, { color: c.textSecondary }]}>
+        習慣ごとのリマインダーは、習慣カードを長押しして設定できます
+      </Text>
+
       <SectionTitle>このアプリについて</SectionTitle>
       <Row
         icon="mail-outline"
@@ -117,4 +220,24 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
   rowLabel: { flex: 1, fontSize: 15, fontWeight: '600' },
+  notifSection: { marginBottom: Spacing.xs, padding: 0, overflow: 'hidden' },
+  notifRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: Spacing.md,
+  },
+  notifLabel: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
+  notifEmoji: { fontSize: 22 },
+  notifTitle: { fontSize: 14, fontWeight: '700' },
+  notifSub: { fontSize: 12, marginTop: 2 },
+  timePickerContainer: {
+    borderTopWidth: 1,
+    paddingVertical: Spacing.md,
+    paddingHorizontal: Spacing.md,
+    alignItems: 'center',
+    gap: Spacing.sm,
+  },
+  timePickerLabel: { fontSize: 12 },
+  notifHint: { fontSize: 12, marginBottom: Spacing.md, lineHeight: 17 },
 });
