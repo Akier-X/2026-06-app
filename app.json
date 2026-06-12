@@ -51,7 +51,6 @@
           }
         }
       ],
-      "expo-store-review",
       [
         "react-native-google-mobile-ads",
         {
