@@ -2,6 +2,8 @@
 
 本番リリース前に、テストIDを実際のAdMob IDに差し替える手順です。
 
+> **現在の状態**: アプリID・バナー・リワードは本番ID設定済み。インタースティシャルのみテストID。
+
 ---
 
 ## 1. AdMobアカウント作成
@@ -23,43 +25,68 @@
 
 ## 3. 広告ユニットを作成
 
-### バナー広告（きろくタブ）
+### バナー広告（きろくタブ・設定タブ）
 
 1. 左メニュー「アプリ」→「ココロコーチ」→「広告ユニット」→「追加」
 2. 「バナー」を選択
-3. 名前: `stats_banner`
+3. 名前: `bottom_banner`
 4. 作成 → **広告ユニットID** をコピー（`ca-app-pub-XXXX/XXXX` 形式）
 
-### リワード広告（月次レポート解放）
+### リワード広告（月次レポート解放・詳細分析解放）
 
 1. 同じく「広告ユニット」→「追加」
 2. 「リワード」を選択
-3. 名前: `monthly_report_reward`
+3. 名前: `content_unlock_reward`
 4. 作成 → **広告ユニットID** をコピー
+
+### インタースティシャル広告（年間レポート前 / 月1回）⚠️ 要設定
+
+1. 同じく「広告ユニット」→「追加」
+2. 「インタースティシャル」を選択
+3. 名前: `annual_report_interstitial`
+4. 作成 → **広告ユニットID** をコピー
+5. `src/constants/ads.ts` の `INTERSTITIAL_ANDROID` を差し替える
 
 ---
 
 ## 4. IDを設定ファイルに記入
 
-`src/constants/ads.ts` を開き、テストIDを本番IDに差し替える:
+`src/constants/ads.ts` の現在の状態:
 
 ```typescript
 export const ADS = {
-  ANDROID_APP_ID: 'ca-app-pub-XXXX~XXXX',   // ← アプリID
-  BANNER_ANDROID: 'ca-app-pub-XXXX/XXXX',    // ← バナー広告ユニットID
-  REWARDED_ANDROID: 'ca-app-pub-XXXX/XXXX',  // ← リワード広告ユニットID
+  ANDROID_APP_ID: 'ca-app-pub-3076522403289369~9043899462',   // ✅ 本番ID設定済み
+  BANNER_ANDROID: 'ca-app-pub-3076522403289369/7936002787',    // ✅ 本番ID設定済み
+  REWARDED_ANDROID: 'ca-app-pub-3076522403289369/1969360235',  // ✅ 本番ID設定済み
+  INTERSTITIAL_ANDROID: 'ca-app-pub-3940256099942544/1033173712', // ⚠️ テストID → 要差し替え
 } as const;
 ```
 
-`app.json` の `androidAppId` も同じアプリIDに差し替える:
+インタースティシャルを作成したら最終行を差し替える。
+
+`app.json` の `androidAppId` も同じアプリIDが設定済み:
 
 ```json
-["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-XXXX~XXXX" }]
+["react-native-google-mobile-ads", { "androidAppId": "ca-app-pub-3076522403289369~9043899462" }]
 ```
 
 ---
 
-## 5. ビルド
+## 5. 広告の配置ルール（実装済み）
+
+| 広告タイプ | 表示場所 | 表示条件 |
+| --- | --- | --- |
+| バナー | きろくタブ下部 | 無料ユーザー・記録7日以上 |
+| バナー | 設定タブ下部 | 無料ユーザー・記録7日以上 |
+| リワード | 月次レポート解放ボタン | 無料ユーザー（任意） |
+| リワード | 詳細分析解放ボタン | 無料ユーザー（任意） |
+| インタースティシャル | 年間レポート開くボタン押下時 | 無料ユーザー・記録7日以上・月1回まで |
+
+新規ユーザー（記録7日未満）とプレミアムユーザーには広告を表示しない。
+
+---
+
+## 6. ビルド
 
 ```bash
 npx expo prebuild --platform android
@@ -68,17 +95,18 @@ npx expo run:android
 eas build --platform android
 ```
 
-> **注意**: AdMob広告はExpo Goでは表示されません（開発ビルドが必要）。  
-> テスト中はテストIDのまま進め、ストア申請直前に本番IDに差し替えます。
+> **注意**: AdMob広告はExpo Goでは表示されません（開発ビルドが必要）。
+> Expo Goではリワード広告のみ「即座に報酬付与」のモック動作をします。
 
 ---
 
-## テストID（現在使用中）
+## テストID一覧（差し替え前の参考）
 
-| 用途 | ID |
-|---|---|
+| 用途 | テストID |
+| --- | --- |
 | Android App ID | `ca-app-pub-3940256099942544~3347511713` |
 | バナー | `ca-app-pub-3940256099942544/6300978111` |
 | リワード | `ca-app-pub-3940256099942544/5224354917` |
+| インタースティシャル | `ca-app-pub-3940256099942544/1033173712` |
 
 これらはGoogleが提供する公式テスト用IDです。本番ビルドでは必ず差し替えてください。
