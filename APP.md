@@ -42,7 +42,7 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 - **習慣リスト**: 登録した習慣を一覧表示。タップで完了/未完了を切り替え
 - **連続日数バッジ**: 各習慣に現在の連続達成日数を表示（🔥 N日連続）
 - **習慣追加ボタン**: 無料プランは3個まで。上限に達するとペイウォールへ
-- **マイルストーン演出** ✨ `2026-06-12追加`: 7日・30日・100日連続達成時にアニメーション付きモーダルを表示。一度見た通知は再表示しない
+- **マイルストーン演出** ✨ `2026-06-12追加`: 7日・30日・100日連続達成時にアニメーション付きモーダルを表示。一度見た通知は再表示しない。**「📤 シェアする」ボタン** → カード全体を PNG キャプチャして共有（EAS Build 以降で画像シェア。Expo Go ではテキストフォールバック）
 - **リマインダーバッジ** ✨ `2026-06-12追加`: 通知設定済みの習慣カードに 🔔 HH:MM を表示
 - **長押しで習慣設定** ✨ `2026-06-12追加`: 習慣カードを長押し → 習慣の設定モーダル（リマインダー時刻設定・アーカイブ・削除）
 - **アーカイブ非表示** ✨ `2026-06-12追加`: アーカイブ済み習慣は今日タブに表示しない（データは保持）
@@ -51,8 +51,12 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 
 ## コーチタブ
 
-- **AIチャット UI**: チャット形式で入力・返答を表示
-- **ローカルコーチエンジン**: 外部API不要・端末内完結・オフライン動作
+- **AIチャット UI**: チャット形式で入力・返答を表示。送信中はストリーミング表示（トークン逐次表示）
+- **ローカルLLMコーチ** ✨ `2026-06-12追加`: `llama.rn`（llama.cpp）で Llama 3.2 1B Instruct を端末上で推論。設定画面からモデルをDL（約770MB）すると有効になる。EAS Build必須・Expo Goではルールベースにフォールバック
+  - `src/lib/llm.ts`: モデルDL進捗管理・`initLlama` でロード・`completion` でストリーミング推論
+  - 日本語コーチング専用システムプロンプト（ユーザー名・目標・今日の習慣・最近の気分を動的注入）
+  - Llama 3.2 チャットテンプレート（`<|start_header_id|>` 形式）で多ターン会話対応
+- **ローカルルールベースエンジン（フォールバック）**: LLM未DL時 / Expo Go 時に動作
 
 ### インテント分類（13種） ✨ `2026-06-12 11→13種に拡張`
 
@@ -100,7 +104,11 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
   - 数値はカウントアップアニメーション付き
   - スライド入場アニメーション（フェード + スライドアップ + 絵文字スプリング）
   - 上部プログレスバー（スライド連動）・背景デコレーション円で奥行き演出
-  - 最終スライドから「友達にシェアする」ボタン（システムシェアシート）
+  - 最終スライドに「📤 友達にシェアする」ボタン → **react-native-view-shot でスライドを PNG 画像キャプチャして共有**（EAS Build 以降で動作。Expo Go ではテキストフォールバック）
+- **AIインサイト共有カード** ✨ `2026-06-12追加`:
+  - 詳細分析の各インサイト行をタップ → `InsightShareModal` を表示
+  - ダークグリーン背景の縦型カードにインサイト・ハッシュタグ・アプリ名を配置
+  - 「📤 このカードをシェアする」で PNG 画像シェア（同上フォールバック）
 
 ---
 
@@ -116,6 +124,16 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 - **きろくセクション** ✨ `2026-06-12追加`:
   - 年間レポートへのショートカット
   - アーカイブ済み習慣の管理（復元・完全削除）
+- **AIコーチを強化（LLMモデル）** ✨ `2026-06-12追加`:
+  - 「ローカルLLMモデル」セクションにモデルDLボタン・進捗バー・削除ボタンを表示
+  - ダウンロード済み → コーチタブで `🧠 AIコーチ（LLM）` バッジを表示
+  - 未DL → `💡 設定からLLMをDLすると返答が向上します` バナーをタップで設定へ遷移
+  - EAS Build（native module 必須）でのみ機能。Expo Go では非表示
+- **友達を招待** ✨ `2026-06-12追加`:
+  - ユーザー固有の招待コード（`XXXX-XXXX` 形式）を大きく表示
+  - 「コードをシェアする」でテキスト共有
+  - 友達のコードを入力 → 7日間プレミアム無料トライアルを付与
+  - 招待コードはデータリセット後も保持。トライアル期限は設定画面に表示
 - ご意見・お問い合わせ（アプリ内フォーム）
 - 利用規約 / プライバシーポリシー（アプリ内表示） ✨ `2026-06-12`: 外部URL→アプリ内モーダルに変更
 - データを初期化
@@ -129,6 +147,7 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 | 習慣の登録数 | 3個まで（アーカイブは除く） | 無制限 |
 | AIコーチのメッセージ | 1日5通まで | 無制限 |
 | 詳細分析（きろくタブ） | ソフトロック表示（広告で解放可） | 気分×習慣相関・曜日パターン |
+| 招待コードトライアル | 友達のコードで7日間プレミアム体験 | ― |
 
 ---
 
@@ -151,6 +170,37 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 ---
 
 ## 更新履歴
+
+### 2026-06-12（第9回アップデート）— ローカルLLMコーチ実装（llama.rn 1B）
+
+コーチ返答品質を向上させるため、`llama.rn` を使った端末内 LLM 推論を実装
+
+1. **`src/lib/llm.ts` 新規作成** → `llama.rn` + `expo-file-system/legacy` でモデル管理を一元化。`isModelDownloaded()`・`downloadModel(onProgress)`・`loadModel()`・`releaseModel()`・`generateLLMReply(systemPrompt, history, userText, onToken)` を提供。ネイティブ非対応環境（Expo Go）では `llamaRN = null` にフォールバック
+2. **`src/lib/coach.ts` 更新** → `sendToCoachStreaming(history, onToken)` を追加。LLMロード済みなら Llama 3.2 チャットテンプレートで推論、未ロードならローカルルールベースを呼びトークン全体を一括コールバック。日本語コーチング専用システムプロンプトをユーザー情報（名前・目標・習慣・気分）で動的構築
+3. **`src/app/(tabs)/coach.tsx` 更新** → `sendToCoachStreaming` に切り替え。`streamingText` state でトークン逐次表示（`ListFooterComponent` に進行中バブル）。LLM 状態バッジ（`ready` / `loading` / `not-downloaded` / `unavailable`）を上部に表示。送信ボタンに `ActivityIndicator` を追加
+4. **`src/app/(tabs)/settings.tsx` 更新** → 「AIコーチを強化」セクション追加。DLボタン・進捗バー（%表示）・削除ボタン。EAS Build 非対応環境（`isNativeSupported()` = false）では非表示
+5. **`package.json` 更新** → `llama.rn` を追加（`--ignore-scripts` でインストール後、JNI libs を PowerShell 経由で手動 DL・展開）
+
+**モデル**: Llama-3.2-1B-Instruct-Q4_K_M.gguf（約770MB、Hugging Face `bartowski` リポジトリ）
+**動作要件**: EAS Build（development / preview / production いずれか）。`docs/eas-build.md` 参照
+
+---
+
+### 2026-06-12（第8回アップデート）— SNS共有機能・紹介コードシステム実装
+
+バイラルループ構築のため、SNS共有（Tier1〜4）と招待コードによるグロース施策を追加
+
+1. **`src/lib/shareUtils.ts` 新規作成** → `shareImageFromRef()` ユーティリティ。`react-native-view-shot` で View を PNG キャプチャして `expo-sharing` で共有。キャプチャ失敗時は `Share.share({ message })` にフォールバック（Expo Go 対応）
+2. **`src/app/annual-report.tsx` 更新** → 最終スライドに `slideRef` を付与し、`captureViewRef` でスライド全体を画像化。「📤 友達にシェアする」が PNG 共有になった（Tier1）
+3. **`src/components/MilestoneModal.tsx` 更新** → マイルストーントカードに `cardRef` を付与。「📤 シェアする」ボタンで達成カードを画像シェア（Tier2）
+4. **`src/components/InsightShareModal.tsx` 新規作成** → ダークグリーンの縦型カードにインサイトを配置。PNG キャプチャ + シェア（Tier3）
+5. **`src/app/(tabs)/stats.tsx` 更新** → インサイト行を `Pressable` 化。タップで `InsightShareModal` を表示（Tier3）
+6. **`src/store/useAppStore.ts` 更新** → `referralCode`（固有招待コード）・`freeTrialUntil`（ISO日付）・`redeemedCodes`（使用済み一覧）を追加。`redeemReferralCode`（7日トライアル付与）・`checkTrialExpiry`（期限チェック）アクションを実装。`resetAll` は `referralCode` を保持（Tier4）
+7. **`src/app/(tabs)/settings.tsx` 更新** → 「友達を招待」セクション追加。固有コードの表示・シェア、友達コードの入力・受け取り、トライアル残日数表示（Tier4）
+8. **`src/app/_layout.tsx` 更新** → 起動時に `checkTrialExpiry()` を実行してトライアル期限切れを自動解除
+9. **`package.json` 更新** → `react-native-view-shot`・`expo-sharing` を追加（`npx expo install` 経由、SDK 54 互換バージョン）
+
+---
 
 ### 2026-06-12（第7回アップデート）— UX改善: 初週体験・年間レポート品質向上
 
@@ -260,7 +310,7 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 | プレミアム課金（RevenueCat） | ✅ |
 | 7日無料体験 | ✅ |
 | 広告（バナー・リワード） | ✅（本番ID設定済み） |
-| 広告（インタースティシャル） | ⚠️ テストID（本番ID要差し替え） |
+| 広告（インタースティシャル） | ✅（本番ID設定済み） |
 | 法務対応 | ✅ |
 | お問い合わせ | ✅ |
 | アーカイブ | ✅ |
@@ -268,6 +318,10 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 | レビュー依頼 | ✅（7日・30日マイルストーン） |
 | クラッシュ確認 | 未（実機テスト必要） |
 | インタースティシャル本番ID差し替え | 未（docs/admob-setup.md 参照） |
+| SNS共有機能（Tier1〜4） | ✅ |
+| 紹介コードシステム | ✅ |
+| ローカルLLMコーチ（llama.rn 1B） | ✅（EAS Build で検証要） |
+| EAS Build による実機テスト | 未（`docs/eas-build.md` 参照） |
 | Google Playストア素材 | 未（アイコン・スクショ・Feature Graphic） |
 
 ---

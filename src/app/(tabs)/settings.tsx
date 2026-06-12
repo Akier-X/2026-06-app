@@ -1,11 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
 import AdBanner from '@/components/AdBanner';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import {
+  deleteModel,
+  downloadModel,
+  isModelDownloaded,
+  isNativeSupported,
+  LLM_MODEL_SIZE_MB,
+} from '@/lib/llm';
 import {
   cancelMoodReminder,
   cancelWeeklyNotification,
@@ -84,6 +91,13 @@ export default function SettingsScreen() {
 
   const [restoring, setRestoring] = useState(false);
   const [referralInput, setReferralInput] = useState('');
+  const [modelDownloaded, setModelDownloaded] = useState<boolean | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState(0);
+
+  useEffect(() => {
+    isModelDownloaded().then(setModelDownloaded);
+  }, []);
   const [moodReminderEnabled, setMoodReminderEnabled] = useState(!!profile.moodReminderTime);
   const [moodReminderTime, setMoodReminderTime] = useState(profile.moodReminderTime ?? '20:00');
   const [weeklyEnabled, setWeeklyEnabled] = useState(!!profile.weeklyNotificationEnabled);
@@ -131,6 +145,51 @@ export default function SettingsScreen() {
     } else {
       Alert.alert('無効なコードです', 'コードの形式を確認してください（例: AB3F-7XK2）。');
     }
+  };
+
+  const onDownloadModel = () => {
+    Alert.alert(
+      'AIモデルをダウンロード',
+      `約${LLM_MODEL_SIZE_MB}MBのLLMモデルをダウンロードします。Wi-Fi接続を推奨します。`,
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: 'ダウンロード',
+          onPress: async () => {
+            setDownloading(true);
+            setDownloadProgress(0);
+            try {
+              await downloadModel((p) => setDownloadProgress(p));
+              setModelDownloaded(true);
+              Alert.alert('ダウンロード完了', 'AIコーチタブを開き直すと強化されたコーチが利用できます。');
+            } catch (e) {
+              Alert.alert('エラー', `ダウンロードに失敗しました: ${String(e)}`);
+            } finally {
+              setDownloading(false);
+              setDownloadProgress(0);
+            }
+          },
+        },
+      ],
+    );
+  };
+
+  const onDeleteModel = () => {
+    Alert.alert(
+      'モデルを削除',
+      'ダウンロード済みのLLMモデルを削除します。削除後はルールベースの応答になります。',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        {
+          text: '削除する',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteModel();
+            setModelDownloaded(false);
+          },
+        },
+      ],
+    );
   };
 
   const onReset = () => {
@@ -300,6 +359,54 @@ export default function SettingsScreen() {
         onPress={() => router.push('/archived-habits')}
       />
 
+      {/* AIコーチ強化（LLM） */}
+      {isNativeSupported() && (
+        <>
+          <SectionTitle>AIコーチを強化</SectionTitle>
+          <Card style={llmStyles.card}>
+            <View style={llmStyles.header}>
+              <Text style={llmStyles.emoji}>🧠</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={[llmStyles.title, { color: c.text }]}>ローカルLLMモデル</Text>
+                <Text style={[llmStyles.sub, { color: c.textSecondary }]}>
+                  端末上でAIを動かし、より自然なコーチング返答を実現します（約{LLM_MODEL_SIZE_MB}MB）
+                </Text>
+              </View>
+            </View>
+
+            {downloading ? (
+              <View style={llmStyles.progressWrap}>
+                <View style={[llmStyles.progressBg, { backgroundColor: c.border }]}>
+                  <View
+                    style={[
+                      llmStyles.progressFill,
+                      { backgroundColor: c.primary, width: `${Math.round(downloadProgress * 100)}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={[llmStyles.progressText, { color: c.textSecondary }]}>
+                  {Math.round(downloadProgress * 100)}% ダウンロード中...
+                </Text>
+              </View>
+            ) : modelDownloaded ? (
+              <View style={llmStyles.statusRow}>
+                <Text style={[llmStyles.statusText, { color: '#1A6650' }]}>✓ ダウンロード済み（使用中）</Text>
+                <Pressable onPress={onDeleteModel}>
+                  <Text style={[llmStyles.deleteText, { color: c.danger }]}>削除</Text>
+                </Pressable>
+              </View>
+            ) : (
+              <Pressable
+                onPress={onDownloadModel}
+                style={[llmStyles.dlBtn, { backgroundColor: c.primary }]}>
+                <Ionicons name="cloud-download-outline" size={16} color="#fff" />
+                <Text style={llmStyles.dlBtnText}>ダウンロード（約{LLM_MODEL_SIZE_MB}MB）</Text>
+              </Pressable>
+            )}
+          </Card>
+        </>
+      )}
+
       {/* 友達を招待 */}
       <SectionTitle>友達を招待</SectionTitle>
       <Card style={refStyles.section}>
@@ -409,6 +516,30 @@ const styles = StyleSheet.create({
   },
   timePickerLabel: { fontSize: 12 },
   notifHint: { fontSize: 12, marginBottom: Spacing.md, lineHeight: 17 },
+});
+
+const llmStyles = StyleSheet.create({
+  card: { gap: Spacing.sm },
+  header: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
+  emoji: { fontSize: 28, marginTop: 2 },
+  title: { fontSize: 14, fontWeight: '700' },
+  sub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+  progressWrap: { gap: 6 },
+  progressBg: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: 6, borderRadius: 3 },
+  progressText: { fontSize: 12, textAlign: 'center' },
+  statusRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  statusText: { fontSize: 13, fontWeight: '600' },
+  deleteText: { fontSize: 13, fontWeight: '600' },
+  dlBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 11,
+    borderRadius: Radius.full,
+  },
+  dlBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
 });
 
 const refStyles = StyleSheet.create({
