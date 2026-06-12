@@ -197,9 +197,46 @@ export default function StatsScreen() {
             <View style={[styles.emptyState, { backgroundColor: c.card, borderColor: c.border }]}>
               <Text style={styles.emptyEmoji}>📈</Text>
               <Text style={[styles.emptyTitle, { color: c.text }]}>分析の準備中</Text>
-              <Text style={[styles.emptySub, { color: c.textSecondary }]}>
-                あと{daysUntilAnalysis}日記録すると最初の分析が見られます
+              <View style={styles.progressDots}>
+                {Array.from({ length: minDays }).map((_, i) => (
+                  <View
+                    key={i}
+                    style={[
+                      styles.progressDot,
+                      { backgroundColor: i < activeDays ? c.primary : c.border },
+                    ]}
+                  />
+                ))}
+              </View>
+              <Text style={[styles.progressCount, { color: c.textSecondary }]}>
+                {activeDays}/{minDays}日記録済み
               </Text>
+              <Text style={[styles.emptySub, { color: c.textSecondary }]}>
+                あと{daysUntilAnalysis}日記録すると最初のレポートが届きます
+              </Text>
+              <View style={[styles.milestoneList, { borderTopColor: c.border }]}>
+                <View style={styles.milestoneRow}>
+                  <Text style={[styles.milestoneIcon, { color: activeDays >= 3 ? c.primary : c.textSecondary }]}>
+                    {activeDays >= 3 ? '✓' : '○'}
+                  </Text>
+                  <Text style={[styles.milestoneTxt, { color: activeDays >= 3 ? c.primary : c.textSecondary }]}>
+                    3日 → 週次レポート開始
+                  </Text>
+                </View>
+                <View style={styles.milestoneRow}>
+                  <Text style={[styles.milestoneIcon, { color: totalDaysWithData >= 7 ? c.primary : c.textSecondary }]}>
+                    {totalDaysWithData >= 7 ? '✓' : '○'}
+                  </Text>
+                  <Text style={[styles.milestoneTxt, { color: totalDaysWithData >= 7 ? c.primary : c.textSecondary }]}>
+                    7日 → AIインサイト・詳細分析
+                  </Text>
+                </View>
+              </View>
+              <Pressable
+                onPress={() => router.push('/(tabs)/')}
+                style={[styles.emptyBtn, { borderColor: c.primary }]}>
+                <Text style={[styles.emptyBtnText, { color: c.primary }]}>今日の記録へ →</Text>
+              </Pressable>
             </View>
           ) : null}
         </>
@@ -560,6 +597,15 @@ const styles = StyleSheet.create({
   },
   gateAdBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
   gateUpgrade: { fontSize: 13, fontWeight: '600', marginTop: Spacing.xs },
+
+  // 初週進捗
+  progressDots: { flexDirection: 'row', gap: 8, marginTop: 4 },
+  progressDot: { width: 14, height: 14, borderRadius: 7 },
+  progressCount: { fontSize: 12, fontWeight: '700' },
+  milestoneList: { width: '100%', borderTopWidth: StyleSheet.hairlineWidth, paddingTop: 12, marginTop: 4, gap: 6 },
+  milestoneRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  milestoneIcon: { fontSize: 12, fontWeight: '700', width: 14, textAlign: 'center' },
+  milestoneTxt: { fontSize: 12 },
 
   // 空状態
   emptyState: {
