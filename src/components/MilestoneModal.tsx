@@ -1,7 +1,9 @@
 import { useEffect, useRef } from 'react';
 import { Animated, Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { captureRef as captureViewRef } from 'react-native-view-shot';
 
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import { shareImageFromRef } from '@/lib/shareUtils';
 
 export interface MilestoneData {
   key: string;
@@ -37,6 +39,7 @@ interface Props {
 
 export default function MilestoneModal({ milestone, onClose }: Props) {
   const c = useThemeColors();
+  const cardRef = useRef<View>(null);
   const scaleAnim = useRef(new Animated.Value(0.6)).current;
   const opacityAnim = useRef(new Animated.Value(0)).current;
 
@@ -64,10 +67,21 @@ export default function MilestoneModal({ milestone, onClose }: Props) {
   const config = MILESTONE_CONFIG[milestone.days];
   if (!config) return null;
 
+  const handleShare = async () => {
+    const fallback =
+      `${config.badge} ${milestone.habitEmoji} ${milestone.habitName} ${milestone.days}日連続達成！\n` +
+      `${config.message}\n\n#ここロコーチ #習慣化`;
+    await shareImageFromRef(
+      () => captureViewRef(cardRef, { format: 'png', quality: 1.0 }),
+      fallback,
+    );
+  };
+
   return (
     <Modal transparent animationType="none" visible={!!milestone} onRequestClose={onClose}>
       <Pressable style={styles.overlay} onPress={onClose}>
         <Animated.View
+          ref={cardRef as unknown as React.RefObject<View>}
           style={[
             styles.card,
             { backgroundColor: c.card, borderColor: c.border },
@@ -82,9 +96,14 @@ export default function MilestoneModal({ milestone, onClose }: Props) {
           <Text style={[styles.days, { color: c.accent }]}>🔥 {milestone.days}日連続</Text>
           <Text style={[styles.message, { color: c.textSecondary }]}>{config.message}</Text>
           <Pressable
+            onPress={handleShare}
+            style={[styles.shareButton, { borderColor: c.border }]}>
+            <Text style={[styles.shareButtonText, { color: c.textSecondary }]}>📤  シェアする</Text>
+          </Pressable>
+          <Pressable
             onPress={onClose}
             style={[styles.button, { backgroundColor: c.primary }]}>
-            <Text style={styles.buttonText}>ありがとう!</Text>
+            <Text style={styles.buttonText}>ありがとう！</Text>
           </Pressable>
         </Animated.View>
       </Pressable>
@@ -114,8 +133,16 @@ const styles = StyleSheet.create({
   habitName: { fontSize: 16, fontWeight: '700', textAlign: 'center' },
   days: { fontSize: 20, fontWeight: '800' },
   message: { fontSize: 14, lineHeight: 22, textAlign: 'center', marginVertical: Spacing.xs },
+  shareButton: {
+    marginTop: Spacing.xs,
+    paddingHorizontal: Spacing.xl,
+    paddingVertical: 10,
+    borderRadius: Radius.full,
+    borderWidth: 1.5,
+  },
+  shareButtonText: { fontSize: 15, fontWeight: '700' },
   button: {
-    marginTop: Spacing.sm,
+    marginTop: Spacing.xs,
     paddingHorizontal: Spacing.xl,
     paddingVertical: 12,
     borderRadius: Radius.full,

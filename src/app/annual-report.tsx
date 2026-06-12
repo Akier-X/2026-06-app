@@ -1,17 +1,18 @@
 import { router } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { type RefObject, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
   FlatList,
   Pressable,
-  Share,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
+import { captureRef as captureViewRef } from 'react-native-view-shot';
 
 import { calcStreak } from '@/lib/dates';
+import { shareImageFromRef } from '@/lib/shareUtils';
 import { useAppStore } from '@/store/useAppStore';
 import type { Habit } from '@/types';
 
@@ -63,10 +64,12 @@ function Slide({
   data,
   isActive,
   onShare,
+  slideRef,
 }: {
   data: SlideData;
   isActive: boolean;
   onShare: () => void;
+  slideRef?: RefObject<View | null>;
 }) {
   const { bg, deco } = PALETTE[data.palIdx];
   const fade = useRef(new Animated.Value(0)).current;
@@ -89,7 +92,7 @@ function Slide({
   }, [isActive]);
 
   return (
-    <View style={[styles.slide, { width: SW, backgroundColor: bg }]}>
+    <View ref={slideRef} style={[styles.slide, { width: SW, backgroundColor: bg }]}>
       <View style={[styles.decoCircle, styles.decoTop, { backgroundColor: deco }]} />
       <View style={[styles.decoCircle, styles.decoBottom, { backgroundColor: deco }]} />
       <Animated.View
@@ -208,6 +211,7 @@ export default function AnnualReportScreen() {
 
   const [activeIndex, setActiveIndex] = useState(0);
   const flatRef = useRef<FlatList>(null);
+  const lastSlideRef = useRef<View>(null);
   const progressAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -219,16 +223,17 @@ export default function AnnualReportScreen() {
   }, [activeIndex]);
 
   const handleShare = async () => {
-    try {
-      await Share.share({
-        message:
-          `ココロコーチで${year}年の習慣を振り返りました 🌿\n` +
-          `✅ 総達成回数: ${totalCompletions}回\n` +
-          `🔥 最長ストリーク: ${maxStreak}日` +
-          (bestHabit ? `\n⭐ ベスト習慣: ${bestHabit.name}` : '') +
-          `\n\n#ココロコーチ #習慣化`,
-      });
-    } catch { /* ignore */ }
+    const fallback =
+      `ここロコーチで${year}年の習慣を振り返りました 🌿\n` +
+      `✅ 達成回数: ${totalCompletions}回\n` +
+      `🔥 最長連続: ${maxStreak}日` +
+      (bestHabit ? `\n⭐ ベスト習慣: ${bestHabit.name}` : '') +
+      (avgMood > 0 ? `\n😊 平均気分: ${avgMood.toFixed(1)}/5.0` : '') +
+      `\n\n#ここロコーチ #習慣化`;
+    await shareImageFromRef(
+      () => captureViewRef(lastSlideRef, { format: 'png', quality: 1.0 }),
+      fallback,
+    );
   };
 
   return (
@@ -253,6 +258,7 @@ export default function AnnualReportScreen() {
             data={item}
             isActive={index === activeIndex}
             onShare={handleShare}
+            slideRef={index === SLIDE_COUNT - 1 ? lastSlideRef : undefined}
           />
         )}
         keyExtractor={(_, i) => String(i)}
