@@ -1,11 +1,22 @@
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useEffect, useState } from 'react';
-import { Alert, Pressable, ScrollView, Share, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  ScrollView,
+  Share,
+  StyleSheet,
+  Switch,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import AdBanner from '@/components/AdBanner';
 import { Card, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import { calcStreak, lastNDateKeys, todayKey } from '@/lib/dates';
 import {
   deleteModel,
   downloadModel,
@@ -21,8 +32,37 @@ import {
 } from '@/lib/notifications';
 import { restorePurchases } from '@/lib/purchases';
 import { generateWeeklyReport } from '@/lib/weeklyReport';
-import { useAppStore } from '@/store/useAppStore';
+import { FREE_DAILY_COACH_MESSAGES, FREE_HABIT_LIMIT, useAppStore } from '@/store/useAppStore';
 
+// ─── ここロコーチの木 レベルシステム ─────────────────────────────────────────
+const TREE_LEVELS = [
+  { min: 0,   max: 7,   emoji: '🌱', name: '芽生え' },
+  { min: 7,   max: 30,  emoji: '🌿', name: '成長中' },
+  { min: 30,  max: 60,  emoji: '🌳', name: '根づき' },
+  { min: 60,  max: 100, emoji: '🌸', name: '開花' },
+] as const;
+
+function getTreeInfo(totalDays: number) {
+  if (totalDays >= 100) {
+    return { level: 5, emoji: '🌺', name: '満開', progress: 1, daysToNext: 0, isMaxLevel: true };
+  }
+  for (let i = TREE_LEVELS.length - 1; i >= 0; i--) {
+    const lv = TREE_LEVELS[i];
+    if (totalDays >= lv.min) {
+      return {
+        level: i + 1,
+        emoji: lv.emoji,
+        name: lv.name as string,
+        progress: (totalDays - lv.min) / (lv.max - lv.min),
+        daysToNext: lv.max - totalDays,
+        isMaxLevel: false,
+      };
+    }
+  }
+  return { level: 1, emoji: '🌱', name: '芽生え', progress: 0, daysToNext: 7, isMaxLevel: false };
+}
+
+// ─── TimePicker ───────────────────────────────────────────────────────────────
 function TimePicker({
   value,
   onChange,
@@ -69,6 +109,7 @@ const tpStyles = StyleSheet.create({
   colon: { fontSize: 36, fontWeight: '800' },
 });
 
+// ─── メイン画面 ───────────────────────────────────────────────────────────────
 export default function SettingsScreen() {
   const c = useThemeColors();
   const isPremium = useAppStore((s) => s.isPremium);
@@ -81,12 +122,41 @@ export default function SettingsScreen() {
   const habits = useAppStore((s) => s.habits);
   const completions = useAppStore((s) => s.completions);
   const moods = useAppStore((s) => s.moods);
+  const chat = useAppStore((s) => s.chat);
+  const coachUsage = useAppStore((s) => s.coachUsage);
   const storeMoodReminderTime = useAppStore((s) => s.setMoodReminderTime);
   const storeWeeklyNotification = useAppStore((s) => s.setWeeklyNotification);
 
+  // ─── ここロコーチの木 ───
   const totalDaysWithData = Object.keys(completions).filter(
     (k) => (completions[k]?.length ?? 0) > 0 || moods[k],
   ).length;
+  const tree = getTreeInfo(totalDaysWithData);
+
+  // ─── 今週のサマリー ───
+  const week = lastNDateKeys(7);
+  const activeHabits = habits.filter((h) => !h.archived);
+  const streak = calcStreak((key) => (completions[key]?.length ?? 0) > 0);
+  const totalPossible = activeHabits.length * 7;
+  const weeklyDone = week.reduce(
+    (sum, key) =>
+      sum + (completions[key] ?? []).filter((id) => activeHabits.some((h) => h.id === id)).length,
+    0,
+  );
+  const habitRate = totalPossible === 0 ? null : Math.round((weeklyDone / totalPossible) * 100);
+  const moodVals = week.map((k) => moods[k]).filter(Boolean) as number[];
+  const avgMood =
+    moodVals.length === 0 ? null : moodVals.reduce((a, b) => a + b, 0) / moodVals.length;
+  const weekStart = new Date(Date.now() - 6 * 86400000);
+  weekStart.setHours(0, 0, 0, 0);
+  const aiChatCount = chat.filter(
+    (m) => m.role === 'user' && new Date(m.createdAt) >= weekStart,
+  ).length;
+
+  // ─── 無料プラン使用量 ───
+  const todayCoachUsed = coachUsage.date === todayKey() ? coachUsage.count : 0;
+  const activeHabitsCount = activeHabits.length;
+
   const showBanner = !isPremium && totalDaysWithData >= 7;
 
   const [restoring, setRestoring] = useState(false);
@@ -98,6 +168,7 @@ export default function SettingsScreen() {
   useEffect(() => {
     isModelDownloaded().then(setModelDownloaded);
   }, []);
+
   const [moodReminderEnabled, setMoodReminderEnabled] = useState(!!profile.moodReminderTime);
   const [moodReminderTime, setMoodReminderTime] = useState(profile.moodReminderTime ?? '20:00');
   const [weeklyEnabled, setWeeklyEnabled] = useState(!!profile.weeklyNotificationEnabled);
@@ -193,10 +264,14 @@ export default function SettingsScreen() {
   };
 
   const onReset = () => {
-    Alert.alert('データを初期化', 'すべての習慣・記録・チャット履歴を削除します。よろしいですか?', [
-      { text: 'キャンセル', style: 'cancel' },
-      { text: '削除する', style: 'destructive', onPress: resetAll },
-    ]);
+    Alert.alert(
+      'データを初期化',
+      'すべての習慣・記録・チャット履歴を削除します。よろしいですか?',
+      [
+        { text: 'キャンセル', style: 'cancel' },
+        { text: '削除する', style: 'destructive', onPress: resetAll },
+      ],
+    );
   };
 
   const onToggleMoodReminder = async (enabled: boolean) => {
@@ -263,32 +338,179 @@ export default function SettingsScreen() {
     </Pressable>
   );
 
+  const PremiumLockRow = ({
+    icon,
+    label,
+    targetRoute,
+  }: {
+    icon: keyof typeof Ionicons.glyphMap;
+    label: string;
+    targetRoute: string;
+  }) => (
+    <Pressable
+      onPress={() =>
+        isPremium ? router.push(targetRoute as never) : router.push('/paywall')
+      }>
+      <Card style={styles.row}>
+        <Ionicons name={icon} size={20} color={c.primary} />
+        <Text style={[styles.rowLabel, { color: c.text }]}>{label}</Text>
+        {!isPremium && (
+          <View style={[planStyles.proBadge, { backgroundColor: c.primarySoft }]}>
+            <Ionicons name="lock-closed" size={10} color={c.primary} />
+            <Text style={[planStyles.proBadgeText, { color: c.primary }]}>Pro</Text>
+          </View>
+        )}
+        <Ionicons name="chevron-forward" size={16} color={c.textSecondary} />
+      </Card>
+    </Pressable>
+  );
+
   return (
     <ScrollView
       style={{ backgroundColor: c.background }}
       contentContainerStyle={styles.content}>
-      <SectionTitle>プラン</SectionTitle>
-      <Card style={styles.planCard}>
-        <Text style={styles.planEmoji}>{isPremium ? '⭐️' : '🌱'}</Text>
-        <Text style={[styles.planTitle, { color: c.text }]}>
-          {isPremium ? 'プレミアム会員' : '無料プラン'}
-        </Text>
-        <Text style={[styles.planBody, { color: c.textSecondary }]}>
-          {isPremium
-            ? 'すべての機能をご利用いただけます。いつもありがとうございます!'
-            : 'プレミアムで習慣数・AIコーチが無制限になります。'}
+
+      {/* ───── ここロコーチの木 ───── */}
+      <Card style={treeStyles.card}>
+        <View style={treeStyles.header}>
+          <Text style={treeStyles.treeEmoji}>{tree.emoji}</Text>
+          <View style={{ flex: 1 }}>
+            <View style={treeStyles.titleRow}>
+              <Text style={[treeStyles.title, { color: c.text }]}>ここロコーチの木</Text>
+              <View style={[treeStyles.lvBadge, { backgroundColor: c.primarySoft }]}>
+                <Text style={[treeStyles.lvText, { color: c.primary }]}>Lv.{tree.level}</Text>
+              </View>
+            </View>
+            <Text style={[treeStyles.levelName, { color: c.textSecondary }]}>{tree.name}</Text>
+          </View>
+        </View>
+        <View style={[treeStyles.bar, { backgroundColor: c.border }]}>
+          <View
+            style={[
+              treeStyles.barFill,
+              { backgroundColor: c.primary, width: `${Math.round(tree.progress * 100)}%` },
+            ]}
+          />
+        </View>
+        <Text style={[treeStyles.hint, { color: c.textSecondary }]}>
+          {tree.isMaxLevel
+            ? '🎉 最高レベルに到達！素晴らしい継続力です'
+            : `あと${tree.daysToNext}日でLv.${tree.level + 1}（${TREE_LEVELS[tree.level]?.name ?? '満開'}）`}
         </Text>
       </Card>
-      {!isPremium && (
-        <Row icon="sparkles" label="プレミアムにアップグレード" onPress={() => router.push('/paywall')} />
-      )}
-      <Row
-        icon="refresh"
-        label={restoring ? '復元中...' : '購入を復元'}
-        onPress={onRestore}
-      />
 
-      {/* Notification settings */}
+      {/* ───── 今週のサマリー ───── */}
+      <Card style={summaryStyles.card}>
+        <Text style={[summaryStyles.heading, { color: c.text }]}>今週のサマリー</Text>
+        <View style={summaryStyles.gridRow}>
+          <View style={summaryStyles.cell}>
+            <Text style={summaryStyles.cellIcon}>🔥</Text>
+            <Text style={[summaryStyles.cellValue, { color: c.text }]}>{streak}日</Text>
+            <Text style={[summaryStyles.cellLabel, { color: c.textSecondary }]}>継続中</Text>
+          </View>
+          <View style={[summaryStyles.divV, { backgroundColor: c.border }]} />
+          <View style={summaryStyles.cell}>
+            <Text style={summaryStyles.cellIcon}>📈</Text>
+            <Text style={[summaryStyles.cellValue, { color: c.text }]}>
+              {habitRate === null ? '--' : `${habitRate}%`}
+            </Text>
+            <Text style={[summaryStyles.cellLabel, { color: c.textSecondary }]}>習慣達成率</Text>
+          </View>
+        </View>
+        <View style={[summaryStyles.divH, { backgroundColor: c.border }]} />
+        <View style={summaryStyles.gridRow}>
+          <View style={summaryStyles.cell}>
+            <Text style={summaryStyles.cellIcon}>😊</Text>
+            <Text style={[summaryStyles.cellValue, { color: c.text }]}>
+              {avgMood === null ? '--' : avgMood.toFixed(1)}
+            </Text>
+            <Text style={[summaryStyles.cellLabel, { color: c.textSecondary }]}>気分スコア</Text>
+          </View>
+          <View style={[summaryStyles.divV, { backgroundColor: c.border }]} />
+          <View style={summaryStyles.cell}>
+            <Text style={summaryStyles.cellIcon}>💬</Text>
+            <Text style={[summaryStyles.cellValue, { color: c.text }]}>{aiChatCount}回</Text>
+            <Text style={[summaryStyles.cellLabel, { color: c.textSecondary }]}>AI相談</Text>
+          </View>
+        </View>
+      </Card>
+
+      {/* ───── プラン ───── */}
+      <SectionTitle>プラン</SectionTitle>
+      {isPremium ? (
+        <Card style={styles.planCard}>
+          <Text style={styles.planEmoji}>⭐️</Text>
+          <Text style={[styles.planTitle, { color: c.text }]}>プレミアム会員</Text>
+          <Text style={[styles.planBody, { color: c.textSecondary }]}>
+            すべての機能をご利用いただけます。いつもありがとうございます！
+          </Text>
+        </Card>
+      ) : (
+        <Card style={planStyles.usageCard}>
+          <Text style={[planStyles.currentPlan, { color: c.textSecondary }]}>現在：無料プラン</Text>
+          <View style={planStyles.usageItem}>
+            <View style={planStyles.usageLabelRow}>
+              <Text style={[planStyles.usageLabel, { color: c.text }]}>💬 AIコーチ（本日）</Text>
+              <Text
+                style={[
+                  planStyles.usageCount,
+                  {
+                    color:
+                      todayCoachUsed >= FREE_DAILY_COACH_MESSAGES ? c.danger : c.textSecondary,
+                  },
+                ]}>
+                {todayCoachUsed}/{FREE_DAILY_COACH_MESSAGES}回
+              </Text>
+            </View>
+            <View style={[planStyles.bar, { backgroundColor: c.border }]}>
+              <View
+                style={[
+                  planStyles.barFill,
+                  {
+                    backgroundColor:
+                      todayCoachUsed >= FREE_DAILY_COACH_MESSAGES ? c.danger : c.primary,
+                    width: `${Math.min(100, Math.round((todayCoachUsed / FREE_DAILY_COACH_MESSAGES) * 100))}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+          <View style={planStyles.usageItem}>
+            <View style={planStyles.usageLabelRow}>
+              <Text style={[planStyles.usageLabel, { color: c.text }]}>📋 習慣数</Text>
+              <Text
+                style={[
+                  planStyles.usageCount,
+                  {
+                    color: activeHabitsCount >= FREE_HABIT_LIMIT ? c.danger : c.textSecondary,
+                  },
+                ]}>
+                {activeHabitsCount}/{FREE_HABIT_LIMIT}個
+              </Text>
+            </View>
+            <View style={[planStyles.bar, { backgroundColor: c.border }]}>
+              <View
+                style={[
+                  planStyles.barFill,
+                  {
+                    backgroundColor:
+                      activeHabitsCount >= FREE_HABIT_LIMIT ? c.danger : c.primary,
+                    width: `${Math.min(100, Math.round((activeHabitsCount / FREE_HABIT_LIMIT) * 100))}%`,
+                  },
+                ]}
+              />
+            </View>
+          </View>
+          <Pressable
+            onPress={() => router.push('/paywall')}
+            style={[planStyles.upgradeBtn, { backgroundColor: c.primary }]}>
+            <Ionicons name="sparkles" size={15} color="#fff" />
+            <Text style={planStyles.upgradeBtnText}>プレミアムで無制限にする</Text>
+          </Pressable>
+        </Card>
+      )}
+
+      {/* ───── 通知 ───── */}
       <SectionTitle>通知</SectionTitle>
       <Card style={styles.notifSection}>
         <View style={styles.notifRow}>
@@ -308,7 +530,6 @@ export default function SettingsScreen() {
             thumbColor={moodReminderEnabled ? c.primary : c.textSecondary}
           />
         </View>
-
         {moodReminderEnabled && (
           <View style={[styles.timePickerContainer, { borderTopColor: c.border }]}>
             <Text style={[styles.timePickerLabel, { color: c.textSecondary }]}>通知時刻</Text>
@@ -347,19 +568,30 @@ export default function SettingsScreen() {
         習慣ごとのリマインダーは、習慣カードを長押しして設定できます
       </Text>
 
-      <SectionTitle>きろく</SectionTitle>
+      {/* ───── レポート ───── */}
+      <SectionTitle>レポート</SectionTitle>
       <Row
+        icon="bar-chart-outline"
+        label="週間・月間の振り返り"
+        onPress={() => router.push('/stats' as never)}
+      />
+      <PremiumLockRow
         icon="sparkles-outline"
         label={`${new Date().getFullYear()}年の年間レポート`}
-        onPress={() => router.push('/annual-report')}
-      />
-      <Row
-        icon="archive-outline"
-        label="アーカイブ済み習慣"
-        onPress={() => router.push('/archived-habits')}
+        targetRoute="/annual-report"
       />
 
-      {/* AIコーチ強化（LLM） */}
+      {/* ───── AI分析 ───── */}
+      <SectionTitle>AI分析</SectionTitle>
+      <Row
+        icon="trending-up-outline"
+        label="最近の傾向を見る"
+        onPress={() => router.push('/stats' as never)}
+      />
+      <PremiumLockRow icon="pulse-outline" label="ストレス分析" targetRoute="/stats" />
+      <PremiumLockRow icon="heart-outline" label="幸福度推移" targetRoute="/stats" />
+
+      {/* ───── AIコーチ強化（ローカルLLM） ───── */}
       {isNativeSupported() && (
         <>
           <SectionTitle>AIコーチを強化</SectionTitle>
@@ -373,7 +605,6 @@ export default function SettingsScreen() {
                 </Text>
               </View>
             </View>
-
             {downloading ? (
               <View style={llmStyles.progressWrap}>
                 <View style={[llmStyles.progressBg, { backgroundColor: c.border }]}>
@@ -407,7 +638,7 @@ export default function SettingsScreen() {
         </>
       )}
 
-      {/* 友達を招待 */}
+      {/* ───── 友達を招待 ───── */}
       <SectionTitle>友達を招待</SectionTitle>
       <Card style={refStyles.section}>
         <View style={refStyles.codeRow}>
@@ -438,7 +669,10 @@ export default function SettingsScreen() {
               placeholder="例: AB3F-7XK2"
               placeholderTextColor={c.textSecondary}
               autoCapitalize="characters"
-              style={[refStyles.input, { color: c.text, borderColor: c.border, backgroundColor: c.background }]}
+              style={[
+                refStyles.input,
+                { color: c.text, borderColor: c.border, backgroundColor: c.background },
+              ]}
             />
             <Pressable
               onPress={onRedeemCode}
@@ -447,7 +681,11 @@ export default function SettingsScreen() {
                 refStyles.redeemBtn,
                 { backgroundColor: referralInput.trim() ? c.primary : c.cardPressed },
               ]}>
-              <Text style={[refStyles.redeemBtnText, { color: referralInput.trim() ? '#fff' : c.textSecondary }]}>
+              <Text
+                style={[
+                  refStyles.redeemBtnText,
+                  { color: referralInput.trim() ? '#fff' : c.textSecondary },
+                ]}>
                 受け取る
               </Text>
             </Pressable>
@@ -460,23 +698,41 @@ export default function SettingsScreen() {
         )}
       </Card>
 
-      <SectionTitle>このアプリについて</SectionTitle>
+      {/* ───── アプリ設定 ───── */}
+      <SectionTitle>アプリ設定</SectionTitle>
+      <Row
+        icon="archive-outline"
+        label="アーカイブ済み習慣"
+        onPress={() => router.push('/archived-habits')}
+      />
+      <Row
+        icon="refresh"
+        label={restoring ? '復元中...' : '購入を復元'}
+        onPress={onRestore}
+      />
+
+      {/* ───── サポート ───── */}
+      <SectionTitle>サポート</SectionTitle>
       <Row
         icon="mail-outline"
         label="ご意見・お問い合わせ"
         onPress={() => router.push('/feedback')}
       />
-      <Row icon="document-text-outline" label="利用規約" onPress={() => router.push('/legal?type=terms')} />
+      <Row
+        icon="document-text-outline"
+        label="利用規約"
+        onPress={() => router.push('/legal?type=terms')}
+      />
       <Row
         icon="shield-checkmark-outline"
         label="プライバシーポリシー"
         onPress={() => router.push('/legal?type=privacy')}
       />
 
+      {/* ───── データ ───── */}
       <SectionTitle>データ</SectionTitle>
       <Row icon="trash-outline" label="データを初期化" onPress={onReset} danger />
 
-      {/* バナー広告（無料・7日以上記録のユーザーのみ） */}
       {showBanner && <AdBanner />}
     </ScrollView>
   );
@@ -516,6 +772,68 @@ const styles = StyleSheet.create({
   },
   timePickerLabel: { fontSize: 12 },
   notifHint: { fontSize: 12, marginBottom: Spacing.md, lineHeight: 17 },
+});
+
+const treeStyles = StyleSheet.create({
+  card: { marginBottom: Spacing.sm, gap: Spacing.sm },
+  header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
+  treeEmoji: { fontSize: 44 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  title: { fontSize: 16, fontWeight: '800' },
+  lvBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
+  lvText: { fontSize: 12, fontWeight: '800' },
+  levelName: { fontSize: 13, marginTop: 2 },
+  bar: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  barFill: { height: 8, borderRadius: 4 },
+  hint: { fontSize: 12 },
+});
+
+const summaryStyles = StyleSheet.create({
+  card: { marginBottom: Spacing.md, padding: 0, overflow: 'hidden' },
+  heading: {
+    fontSize: 14,
+    fontWeight: '700',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.md,
+    paddingBottom: Spacing.sm,
+  },
+  gridRow: { flexDirection: 'row' },
+  cell: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md },
+  divV: { width: 1 },
+  divH: { height: 1 },
+  cellIcon: { fontSize: 20, marginBottom: 4 },
+  cellValue: { fontSize: 22, fontWeight: '800' },
+  cellLabel: { fontSize: 12, marginTop: 2 },
+});
+
+const planStyles = StyleSheet.create({
+  usageCard: { gap: Spacing.sm },
+  currentPlan: { fontSize: 13, fontWeight: '600' },
+  usageItem: { gap: 6 },
+  usageLabelRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  usageLabel: { fontSize: 14, fontWeight: '600' },
+  usageCount: { fontSize: 13, fontWeight: '700' },
+  bar: { height: 8, borderRadius: 4, overflow: 'hidden' },
+  barFill: { height: 8, borderRadius: 4 },
+  upgradeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    paddingVertical: 12,
+    borderRadius: Radius.full,
+    marginTop: 4,
+  },
+  upgradeBtnText: { color: '#fff', fontSize: 14, fontWeight: '700' },
+  proBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: Radius.full,
+  },
+  proBadgeText: { fontSize: 11, fontWeight: '700' },
 });
 
 const llmStyles = StyleSheet.create({
