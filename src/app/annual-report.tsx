@@ -1,5 +1,5 @@
 import { router } from 'expo-router';
-import { type RefObject, useEffect, useRef, useState } from 'react';
+import { type ReactNode, type RefObject, useEffect, useRef, useState } from 'react';
 import {
   Animated,
   Dimensions,
@@ -11,29 +11,34 @@ import {
 } from 'react-native';
 import { captureRef as captureViewRef } from 'react-native-view-shot';
 
+import Bloom from '@/components/art/Bloom';
+import InkIcon, { MOOD_ICONS } from '@/components/art/InkIcon';
+import { Fonts } from '@/constants/theme';
 import { calcStreak } from '@/lib/dates';
 import { shareImageFromRef } from '@/lib/shareUtils';
 import { useAppStore } from '@/store/useAppStore';
 import type { Habit } from '@/types';
 
 const { width: SW } = Dimensions.get('window');
-const MOOD_EMOJI = ['', '😞', '😕', '😐', '🙂', '😄'];
 const SLIDE_COUNT = 6;
 const BAR_MAX = SW - 20 - 64;
 
+// 夜の庭をめぐるような、和の深色
 const PALETTE = [
-  { bg: '#1A6650', deco: 'rgba(255,255,255,0.10)' },
-  { bg: '#1A4C8C', deco: 'rgba(255,255,255,0.10)' },
-  { bg: '#4C1E8C', deco: 'rgba(255,255,255,0.10)' },
-  { bg: '#8C4A00', deco: 'rgba(255,255,255,0.10)' },
-  { bg: '#8C1A46', deco: 'rgba(255,255,255,0.10)' },
-  { bg: '#1A6650', deco: 'rgba(255,255,255,0.10)' },
+  { bg: '#1E3B2C', deco: 'rgba(255,255,255,0.08)' }, // 深緑
+  { bg: '#22405C', deco: 'rgba(255,255,255,0.08)' }, // 藍
+  { bg: '#5C2733', deco: 'rgba(255,255,255,0.08)' }, // 蘇芳
+  { bg: '#6B4A1F', deco: 'rgba(255,255,255,0.08)' }, // 琥珀
+  { bg: '#3A2E4F', deco: 'rgba(255,255,255,0.08)' }, // 茄子紺
+  { bg: '#1E3B2C', deco: 'rgba(255,255,255,0.08)' },
 ];
 
 interface SlideData {
   palIdx: number;
   eyebrow: string;
-  emoji: string;
+  /** 生成アートや線画。emojiより優先 */
+  art?: ReactNode;
+  emoji?: string;
   numericValue?: number;
   textValue?: string;
   unit?: string;
@@ -98,8 +103,8 @@ function Slide({
       <Animated.View
         style={[styles.slideInner, { opacity: fade, transform: [{ translateY: ty }] }]}>
         <Text style={styles.eyebrow}>{data.eyebrow.toUpperCase()}</Text>
-        <Animated.View style={{ transform: [{ scale: emojiScale }] }}>
-          <Text style={styles.slideEmoji}>{data.emoji}</Text>
+        <Animated.View style={[styles.artWrap, { transform: [{ scale: emojiScale }] }]}>
+          {data.art ?? <Text style={styles.slideEmoji}>{data.emoji}</Text>}
         </Animated.View>
         {data.numericValue !== undefined ? (
           <CountUp target={data.numericValue} active={isActive} />
@@ -110,7 +115,8 @@ function Slide({
         <Text style={styles.subText}>{data.sub}</Text>
         {data.withShare && (
           <Pressable onPress={onShare} style={styles.shareBtn}>
-            <Text style={styles.shareBtnText}>📤  友達にシェアする</Text>
+            <InkIcon name="share" size={17} color="#fff" strokeWidth={2} />
+            <Text style={styles.shareBtnText}>友達にシェアする</Text>
           </Pressable>
         )}
       </Animated.View>
@@ -153,14 +159,24 @@ export default function AnnualReportScreen() {
     {
       palIdx: 0,
       eyebrow: `${year}年 振り返り`,
-      emoji: '🌿',
-      textValue: 'あなたの記録',
+      art: (
+        <Bloom size={104} seedKey={`year-${year}`} petals={11} color="#E9DFC8" coreColor="#E3B54F" />
+      ),
+      textValue: 'あなたの一年の庭',
       sub: 'スワイプして振り返りましょう →',
     },
     {
       palIdx: 1,
       eyebrow: '今年の総達成回数',
-      emoji: '✅',
+      art: (
+        <Bloom
+          size={104}
+          seedKey={`year-${year}-done`}
+          petals={Math.min(13, Math.max(1, totalCompletions))}
+          color="#BFD3E3"
+          coreColor="#E3B54F"
+        />
+      ),
       numericValue: totalCompletions,
       unit: '回',
       sub: totalCompletions > 0
@@ -170,7 +186,7 @@ export default function AnnualReportScreen() {
     {
       palIdx: 2,
       eyebrow: '最長ストリーク',
-      emoji: '🔥',
+      art: <InkIcon name="ember" size={92} color="#F0D9CB" strokeWidth={1.4} />,
       numericValue: maxStreak,
       unit: '日連続',
       sub: maxStreak >= 7
@@ -182,7 +198,10 @@ export default function AnnualReportScreen() {
     {
       palIdx: 3,
       eyebrow: 'ベスト習慣',
-      emoji: bestHabit?.emoji ?? '⭐️',
+      emoji: bestHabit?.emoji ?? undefined,
+      art: bestHabit ? undefined : (
+        <InkIcon name="sprout" size={92} color="#EBDDBF" strokeWidth={1.4} />
+      ),
       textValue: bestHabit ? bestHabit.name : 'まだデータなし',
       sub: bestHabit
         ? `今年 ${bestHabitCount}回達成！ 素晴らしい継続力です`
@@ -191,10 +210,17 @@ export default function AnnualReportScreen() {
     {
       palIdx: 4,
       eyebrow: '年間平均気分',
-      emoji: avgMood > 0 ? MOOD_EMOJI[Math.round(avgMood)] : '😐',
+      art: (
+        <InkIcon
+          name={avgMood > 0 ? MOOD_ICONS[Math.round(avgMood) - 1] : 'cloud'}
+          size={92}
+          color="#D9D3E8"
+          strokeWidth={1.4}
+        />
+      ),
       textValue: avgMood > 0 ? `${avgMood.toFixed(1)} / 5.0` : '記録なし',
       sub: avgMood >= 3.5
-        ? '今年は気分が安定していました 😊'
+        ? '今年は心の空模様が晴れの多い一年でした'
         : avgMood > 0
           ? '気分と習慣のつながりをチェックしよう'
           : '毎日の気分を記録するとパターンが見えます',
@@ -202,7 +228,9 @@ export default function AnnualReportScreen() {
     {
       palIdx: 5,
       eyebrow: '来年も一緒に',
-      emoji: '🎉',
+      art: (
+        <Bloom size={104} seedKey={`year-${year}-next`} petals={13} color="#E9C9B8" coreColor="#E3B54F" />
+      ),
       textValue: '継続は力なり',
       sub: '小さな行動の積み重ねが、あなたを変えます',
       withShare: true,
@@ -224,12 +252,12 @@ export default function AnnualReportScreen() {
 
   const handleShare = async () => {
     const fallback =
-      `ここロコーチで${year}年の習慣を振り返りました 🌿\n` +
-      `✅ 達成回数: ${totalCompletions}回\n` +
-      `🔥 最長連続: ${maxStreak}日` +
-      (bestHabit ? `\n⭐ ベスト習慣: ${bestHabit.name}` : '') +
-      (avgMood > 0 ? `\n😊 平均気分: ${avgMood.toFixed(1)}/5.0` : '') +
-      `\n\n#ここロコーチ #習慣化`;
+      `ここロコーチで${year}年の習慣を振り返りました。\n` +
+      `達成回数: ${totalCompletions}回\n` +
+      `最長連続: ${maxStreak}日` +
+      (bestHabit ? `\nベスト習慣: ${bestHabit.name}` : '') +
+      (avgMood > 0 ? `\n平均気分: ${avgMood.toFixed(1)}/5.0` : '') +
+      `\n\n#ここロコーチ #こころの庭 #習慣化`;
     await shareImageFromRef(
       () => captureViewRef(lastSlideRef, { format: 'png', quality: 1.0 }),
       fallback,
@@ -330,14 +358,16 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 4,
   },
+  artWrap: { alignItems: 'center', justifyContent: 'center', minHeight: 96 },
   slideEmoji: { fontSize: 80, lineHeight: 96 },
   mainValue: {
     color: '#fff',
-    fontSize: 52,
-    fontWeight: '900',
+    fontSize: 48,
+    fontFamily: Fonts.display,
     textAlign: 'center',
-    lineHeight: 60,
+    lineHeight: 62,
     marginTop: 2,
+    letterSpacing: 1,
   },
   unitText: {
     color: 'rgba(255,255,255,0.85)',
@@ -355,6 +385,9 @@ const styles = StyleSheet.create({
     alignSelf: 'stretch',
   },
   shareBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
     marginTop: 20,
     backgroundColor: 'rgba(255,255,255,0.15)',
     borderWidth: 1.5,

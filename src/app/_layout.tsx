@@ -1,8 +1,19 @@
+import {
+  ShipporiMinchoB1_400Regular,
+  ShipporiMinchoB1_600SemiBold,
+  ShipporiMinchoB1_700Bold,
+  ShipporiMinchoB1_800ExtraBold,
+  useFonts,
+} from '@expo-google-fonts/shippori-mincho-b1';
 import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
 import * as Notifications from 'expo-notifications';
 import { router, Stack } from 'expo-router';
-import { useEffect } from 'react';
+import * as SplashScreen from 'expo-splash-screen';
+import { useEffect, useState } from 'react';
 import { useColorScheme } from 'react-native';
+
+// フォント読み込みが終わるまでスプラッシュを保持する
+SplashScreen.preventAutoHideAsync().catch(() => {});
 
 import {
   initNotifications,
@@ -20,6 +31,20 @@ import { useAppStore } from '@/store/useAppStore';
 
 export default function RootLayout() {
   const colorScheme = useColorScheme();
+  const [fontsLoaded, fontError] = useFonts({
+    ShipporiMinchoB1_400Regular,
+    ShipporiMinchoB1_600SemiBold,
+    ShipporiMinchoB1_700Bold,
+    ShipporiMinchoB1_800ExtraBold,
+  });
+  // フォント読み込みが失敗・ハングしてもアプリを白画面にしない。
+  // 3秒で諦めてシステムフォントで描画する(未ロードのfontFamilyは各OSでフォールバックされる)。
+  const [fontTimeout, setFontTimeout] = useState(false);
+  useEffect(() => {
+    const t = setTimeout(() => setFontTimeout(true), 3000);
+    return () => clearTimeout(t);
+  }, []);
+  const fontsReady = fontsLoaded || !!fontError || fontTimeout;
   const setPremium = useAppStore((s) => s.setPremium);
   const checkTrialExpiry = useAppStore((s) => s.checkTrialExpiry);
   const completeHabit = useAppStore((s) => s.completeHabit);
@@ -82,6 +107,12 @@ export default function RootLayout() {
     return () => sub.remove();
   }, [completeHabit]);
 
+  useEffect(() => {
+    if (fontsReady) SplashScreen.hideAsync().catch(() => {});
+  }, [fontsReady]);
+
+  if (!fontsReady) return null;
+
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <Stack>
@@ -90,7 +121,7 @@ export default function RootLayout() {
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen
           name="paywall"
-          options={{ presentation: 'modal', title: 'プレミアム' }}
+          options={{ presentation: 'modal', headerShown: false }}
         />
         <Stack.Screen
           name="add-habit"

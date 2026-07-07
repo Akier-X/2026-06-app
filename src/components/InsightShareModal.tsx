@@ -7,30 +7,43 @@ import {
   Text,
   View,
 } from 'react-native';
+import Svg from 'react-native-svg';
 import { captureRef as captureViewRef } from 'react-native-view-shot';
 
+import { BloomGlyph } from '@/components/art/Bloom';
+import InkIcon from '@/components/art/InkIcon';
+import { Colors, Fonts } from '@/constants/theme';
 import { shareImageFromRef } from '@/lib/shareUtils';
 
 const { width: SW } = Dimensions.get('window');
+
+// シェア画像はライトの和紙トーンで固定
+const P = Colors.light;
 
 interface Props {
   insight: string | null;
   onClose: () => void;
 }
 
+/**
+ * 気づきのシェアカード — 一筆箋(いっぴつせん)をモチーフに、
+ * 和紙の上へ明朝の言葉をしたため、隅に小さな花を添える。
+ */
 export default function InsightShareModal({ insight, onClose }: Props) {
   const cardRef = useRef<View>(null);
 
   if (!insight) return null;
 
   const handleShare = async () => {
-    const fallback =
-      `💡 ${insight}\n\n#ここロコーチ #習慣化 #自己分析`;
+    const fallback = `${insight}\n\n#ここロコーチ #こころの庭 #自己分析`;
     await shareImageFromRef(
       () => captureViewRef(cardRef, { format: 'png', quality: 1.0 }),
       fallback,
     );
   };
+
+  const cardW = SW - 48;
+  const bloomSize = 64;
 
   return (
     <Modal
@@ -42,30 +55,40 @@ export default function InsightShareModal({ insight, onClose }: Props) {
       <Pressable style={styles.overlay} onPress={onClose}>
         <Pressable style={styles.container} onPress={() => {}}>
 
-          {/* キャプチャ対象カード */}
-          <View ref={cardRef} style={styles.card}>
-            {/* 装飾サークル */}
-            <View style={[styles.decoCircle, styles.decoTop]} />
-            <View style={[styles.decoCircle, styles.decoBottom]} />
-
-            <View style={styles.cardInner}>
-              <Text style={styles.appEmoji}>🌿</Text>
-              <Text style={styles.appName}>ここロコーチ</Text>
-              <Text style={styles.cardLabel}>AIが発見したインサイト</Text>
-
-              <View style={styles.divider} />
+          {/* キャプチャ対象: 一筆箋カード */}
+          <View ref={cardRef} style={[styles.card, { width: cardW }]}>
+            <View style={styles.frame}>
+              <Text style={styles.cardLabel}>けさの気づき</Text>
+              <View style={styles.rule} />
 
               <Text style={styles.insightText}>{insight}</Text>
 
-              <View style={styles.divider} />
-
-              <Text style={styles.hashtags}>#ここロコーチ  #習慣化  #自己分析</Text>
+              <View style={styles.footerRow}>
+                <View style={styles.brandRow}>
+                  <View style={styles.seal}>
+                    <Text style={styles.sealText}>心</Text>
+                  </View>
+                  <Text style={styles.appName}>ここロコーチ</Text>
+                </View>
+                <Svg width={bloomSize} height={bloomSize}>
+                  <BloomGlyph
+                    cx={bloomSize / 2}
+                    cy={bloomSize / 2}
+                    radius={bloomSize * 0.36}
+                    seedKey={insight}
+                    petals={7}
+                    color={P.moodScale[3]}
+                    coreColor={P.bloomCore}
+                  />
+                </Svg>
+              </View>
             </View>
           </View>
 
           {/* アクションボタン（キャプチャ外） */}
           <Pressable style={styles.shareBtn} onPress={handleShare}>
-            <Text style={styles.shareBtnText}>📤  このカードをシェアする</Text>
+            <InkIcon name="share" size={17} color={P.card} strokeWidth={2} />
+            <Text style={styles.shareBtnText}>このカードをシェアする</Text>
           </Pressable>
           <Pressable style={styles.closeBtn} onPress={onClose}>
             <Text style={styles.closeBtnText}>閉じる</Text>
@@ -77,12 +100,10 @@ export default function InsightShareModal({ insight, onClose }: Props) {
   );
 }
 
-const CARD_BG = '#1A6650';
-
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.75)',
+    backgroundColor: 'rgba(15, 20, 16, 0.82)',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 20,
@@ -93,75 +114,76 @@ const styles = StyleSheet.create({
     gap: 14,
   },
   card: {
-    width: SW - 40,
-    backgroundColor: CARD_BG,
-    borderRadius: 20,
-    overflow: 'hidden',
-    position: 'relative',
+    backgroundColor: P.background,
+    borderRadius: 14,
+    padding: 10,
   },
-  decoCircle: {
-    position: 'absolute',
-    width: SW * 0.75,
-    height: SW * 0.75,
-    borderRadius: SW * 0.375,
-    backgroundColor: 'rgba(255,255,255,0.07)',
-  },
-  decoTop: { top: -(SW * 0.25), right: -(SW * 0.18) },
-  decoBottom: { bottom: -(SW * 0.2), left: -(SW * 0.15) },
-  cardInner: {
-    padding: 32,
-    alignItems: 'center',
-    gap: 10,
-  },
-  appEmoji: { fontSize: 36 },
-  appName: {
-    color: 'rgba(255,255,255,0.9)',
-    fontSize: 18,
-    fontWeight: '800',
-    letterSpacing: 0.5,
+  frame: {
+    borderWidth: 1,
+    borderColor: P.border,
+    borderRadius: 8,
+    backgroundColor: P.card,
+    paddingHorizontal: 24,
+    paddingTop: 24,
+    paddingBottom: 14,
   },
   cardLabel: {
-    color: 'rgba(255,255,255,0.55)',
     fontSize: 11,
-    fontWeight: '700',
-    letterSpacing: 1.4,
-    textTransform: 'uppercase',
+    letterSpacing: 4,
+    color: P.textTertiary,
+    fontWeight: '600',
   },
-  divider: {
-    width: 40,
-    height: 1.5,
-    backgroundColor: 'rgba(255,255,255,0.25)',
-    marginVertical: 4,
+  rule: {
+    width: 34,
+    height: 2,
+    backgroundColor: P.accent,
+    borderRadius: 1,
+    marginTop: 10,
+    marginBottom: 18,
   },
   insightText: {
-    color: '#fff',
-    fontSize: 20,
-    fontWeight: '800',
-    textAlign: 'center',
-    lineHeight: 30,
+    fontFamily: Fonts.displayMedium,
+    color: P.text,
+    fontSize: 21,
+    lineHeight: 36,
+    letterSpacing: 0.5,
   },
-  hashtags: {
-    color: 'rgba(255,255,255,0.45)',
-    fontSize: 12,
-    textAlign: 'center',
-    letterSpacing: 0.3,
+  footerRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    marginTop: 18,
   },
+  brandRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingBottom: 10 },
+  seal: {
+    width: 20,
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: P.accent,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  sealText: { color: P.card, fontSize: 11, fontFamily: Fonts.display },
+  appName: { fontSize: 11, color: P.textTertiary, letterSpacing: 1.5, fontWeight: '600' },
   shareBtn: {
-    backgroundColor: '#fff',
-    paddingHorizontal: 28,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: P.primary,
+    paddingHorizontal: 26,
     paddingVertical: 13,
     borderRadius: 50,
   },
   shareBtnText: {
-    color: CARD_BG,
+    color: P.card,
     fontSize: 15,
-    fontWeight: '800',
+    fontWeight: '700',
   },
   closeBtn: {
     paddingVertical: 8,
   },
   closeBtnText: {
-    color: 'rgba(255,255,255,0.6)',
+    color: 'rgba(255,255,255,0.65)',
     fontSize: 14,
     fontWeight: '600',
   },

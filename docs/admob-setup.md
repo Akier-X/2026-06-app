@@ -58,7 +58,7 @@ export const ADS = {
   ANDROID_APP_ID: 'ca-app-pub-3076522403289369~9043899462',   // ✅ 本番ID設定済み
   BANNER_ANDROID: 'ca-app-pub-3076522403289369/7936002787',    // ✅ 本番ID設定済み
   REWARDED_ANDROID: 'ca-app-pub-3076522403289369/1969360235',  // ✅ 本番ID設定済み
-  INTERSTITIAL_ANDROID: 'ca-app-pub-3940256099942544/1033173712', // ⚠️ テストID → 要差し替え
+  INTERSTITIAL_ANDROID: 'ca-app-pub-3940256099942544/1033173712', //　✅ 本番ID設定済み
 } as const;
 ```
 

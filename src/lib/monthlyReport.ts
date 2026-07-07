@@ -140,7 +140,7 @@ export function generateMonthlyReport(
   } else if (worstHabit && worstHabit.weekRate < 0.3 && total >= 2) {
     topInsight = `${worstHabit.habitEmoji} ${worstHabit.habitName}の月間達成率が低め。目標を小さくしてみませんか？`;
   } else if (bestHabit && bestHabit.streak >= 7) {
-    topInsight = `${bestHabit.habitEmoji} ${bestHabit.habitName}が${bestHabit.streak}日連続！すごいです 🎉`;
+    topInsight = `${bestHabit.habitEmoji} ${bestHabit.habitName}が${bestHabit.streak}日連続。すごいです`;
   } else if (monthlyRate >= 0.8) {
     topInsight = '今月の達成率は80%以上。継続できていて素晴らしいです！';
   }

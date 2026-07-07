@@ -15,11 +15,11 @@ import { PrimaryButton, SectionTitle } from '@/components/ui';
 import { Radius, Spacing, useThemeColors } from '@/constants/theme';
 import { submitFeedback, type FeedbackCategory } from '@/lib/feedback';
 
-const CATEGORIES: { id: FeedbackCategory; emoji: string; label: string }[] = [
-  { id: 'bug', emoji: '🐞', label: '不具合' },
-  { id: 'idea', emoji: '💡', label: '要望' },
-  { id: 'question', emoji: '❓', label: '質問' },
-  { id: 'other', emoji: '💬', label: 'その他' },
+const CATEGORIES: { id: FeedbackCategory; label: string }[] = [
+  { id: 'bug', label: '不具合' },
+  { id: 'idea', label: '要望' },
+  { id: 'question', label: '質問' },
+  { id: 'other', label: 'その他' },
 ];
 
 export default function FeedbackScreen() {
@@ -65,8 +65,8 @@ export default function FeedbackScreen() {
                     borderColor: selected ? c.primary : c.border,
                   },
                 ]}>
-                <Text style={{ fontSize: 15 }}>
-                  {cat.emoji} <Text style={{ color: c.text, fontWeight: '600' }}>{cat.label}</Text>
+                <Text style={{ fontSize: 15, color: selected ? c.primary : c.text, fontWeight: '600' }}>
+                  {cat.label}
                 </Text>
               </Pressable>
             );

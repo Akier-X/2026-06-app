@@ -1,20 +1,35 @@
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { captureRef as captureViewRef } from 'react-native-view-shot';
 
 import AdBanner from '@/components/AdBanner';
+import Bloom from '@/components/art/Bloom';
+import Garden, { type GardenDay } from '@/components/art/Garden';
+import InkIcon, { MOOD_ICONS } from '@/components/art/InkIcon';
 import InsightShareModal from '@/components/InsightShareModal';
-import { Card, SectionTitle } from '@/components/ui';
-import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import { Card, PressableScale, SectionTitle } from '@/components/ui';
+import { Fonts, Radius, Shadows, Spacing, useThemeColors } from '@/constants/theme';
 import { lastNDateKeys, weekdayLabel } from '@/lib/dates';
 import { checkInterstitialAllowed, showInterstitialAd, showRewardedAd } from '@/lib/ads';
 import { generateMonthlyReport } from '@/lib/monthlyReport';
 import { generateWeeklyReport } from '@/lib/weeklyReport';
+import { shareImageFromRef } from '@/lib/shareUtils';
 import { useAppStore } from '@/store/useAppStore';
 
-const MOOD_EMOJI = ['', '😞', '😕', '😐', '🙂', '😄'];
 type Period = 'week' | 'month';
+
+/** 気分値(1〜5)を空模様アイコンで表す */
+function MoodGlyph({ value, size = 16 }: { value: number; size?: number }) {
+  const c = useThemeColors();
+  const v = Math.round(value);
+  if (v < 1) return null;
+  return (
+    <InkIcon name={MOOD_ICONS[v - 1]} size={size} color={c.moodScale[v - 1]} strokeWidth={1.7} />
+  );
+}
 
 function MoodDots({ value }: { value: number }) {
   const c = useThemeColors();
@@ -74,6 +89,7 @@ export default function StatsScreen() {
   const [detailUnlocked, setDetailUnlocked] = useState(false);
   const [loadingDetailAd, setLoadingDetailAd] = useState(false);
   const [shareInsight, setShareInsight] = useState<string | null>(null);
+  const gardenRef = useRef<View>(null);
 
   // ユーザー成熟度チェック（7日以上記録があるユーザーのみバナー・インタースティシャルを表示）
   const allDays = { ...completions };
@@ -143,10 +159,24 @@ export default function StatsScreen() {
     return total === 0 ? 0 : done / total;
   });
 
-  const moodLabel =
-    activeMood === 0
-      ? 'データなし'
-      : MOOD_EMOJI[Math.round(activeMood)] + ' ' + activeMood.toFixed(1);
+  // こころの庭: 1日 = 1輪。達成数が花びらに、気分が色になる
+  const toGardenDay = (key: string): GardenDay => ({
+    key,
+    petals: (completions[key] ?? []).filter((id) => habits.some((h) => h.id === id)).length,
+    mood: moods[key] ?? 0,
+    label: weekdayLabel(key),
+  });
+  const weekGarden = week.map(toGardenDay);
+  const monthGarden = month.map(toGardenDay);
+
+  const onShareGarden = async () => {
+    await shareImageFromRef(
+      () => captureViewRef(gardenRef, { format: 'png', quality: 1.0 }),
+      `この一週間で咲いた花たち\n\n#ここロコーチ #こころの庭 #習慣化`,
+    );
+  };
+
+  const moodLabel = activeMood === 0 ? 'データなし' : activeMood.toFixed(1);
 
   return (
     <>
@@ -158,8 +188,8 @@ export default function StatsScreen() {
 
       {/* 月間レポート：無料ユーザー向けゲート */}
       {period === 'month' && !isPremium && !monthlyUnlocked && (
-        <View style={[styles.monthGate, { backgroundColor: c.card, borderColor: c.border }]}>
-          <Text style={styles.gateEmoji}>📊</Text>
+        <View style={[styles.monthGate, { backgroundColor: c.card }, Shadows.card]}>
+          <InkIcon name="journal" size={40} color={c.primary} strokeWidth={1.5} />
           <Text style={[styles.gateTitle, { color: c.text }]}>月次レポート</Text>
           <Text style={[styles.gateSub, { color: c.textSecondary }]}>
             30日間のデータを深く分析します
@@ -184,8 +214,8 @@ export default function StatsScreen() {
       {(period === 'week' || isPremium || monthlyUnlocked) && (
         <>
           {total === 0 ? (
-            <View style={[styles.emptyState, { backgroundColor: c.card, borderColor: c.border }]}>
-              <Text style={styles.emptyEmoji}>🌱</Text>
+            <View style={[styles.emptyState, { backgroundColor: c.card }, Shadows.card]}>
+              <InkIcon name="sprout" size={40} color={c.primary} strokeWidth={1.5} />
               <Text style={[styles.emptyTitle, { color: c.text }]}>習慣を追加しましょう</Text>
               <Text style={[styles.emptySub, { color: c.textSecondary }]}>
                 「今日」タブから習慣を追加すると分析が始まります
@@ -197,8 +227,8 @@ export default function StatsScreen() {
               </Pressable>
             </View>
           ) : !hasEnoughData ? (
-            <View style={[styles.emptyState, { backgroundColor: c.card, borderColor: c.border }]}>
-              <Text style={styles.emptyEmoji}>📈</Text>
+            <View style={[styles.emptyState, { backgroundColor: c.card }, Shadows.card]}>
+              <InkIcon name="sunCloud" size={40} color={c.primary} strokeWidth={1.5} />
               <Text style={[styles.emptyTitle, { color: c.text }]}>分析の準備中</Text>
               <View style={styles.progressDots}>
                 {Array.from({ length: minDays }).map((_, i) => (
@@ -231,7 +261,7 @@ export default function StatsScreen() {
                     {totalDaysWithData >= 7 ? '✓' : '○'}
                   </Text>
                   <Text style={[styles.milestoneTxt, { color: totalDaysWithData >= 7 ? c.primary : c.textSecondary }]}>
-                    7日 → AIインサイト・詳細分析
+                    7日 → インサイト・詳細分析
                   </Text>
                 </View>
               </View>
@@ -245,10 +275,35 @@ export default function StatsScreen() {
         </>
       )}
 
-      {/* AIレポート（データ十分 かつ 月間は解放済みの場合のみ表示） */}
+      {/* レポート（データ十分 かつ 月間は解放済みの場合のみ表示） */}
       {(hasEnoughData && total > 0) && (period === 'week' || isPremium || monthlyUnlocked) && (
         <>
-      <SectionTitle>{period === 'week' ? '今週のAIレポート' : '今月のAIレポート'}</SectionTitle>
+      {/* こころの庭: 記録した日々が花畑になる */}
+      <SectionTitle>{period === 'week' ? '今週の庭' : '今月の庭'}</SectionTitle>
+      <View ref={gardenRef} collapsable={false}>
+        <Card style={styles.gardenCard}>
+          {period === 'week' ? (
+            <Garden days={weekGarden} height={96} />
+          ) : (
+            <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <View style={{ width: monthGarden.length * 30 }}>
+                <Garden days={monthGarden} height={88} showLabels={false} />
+              </View>
+            </ScrollView>
+          )}
+          <View style={styles.gardenFooter}>
+            <Text style={[styles.gardenHint, { color: c.textTertiary }]}>
+              1日ごとに一輪。達成が花びらに、気分が色になります
+            </Text>
+            <Pressable onPress={onShareGarden} style={styles.gardenShareBtn} hitSlop={8}>
+              <InkIcon name="share" size={15} color={c.primary} strokeWidth={1.9} />
+              <Text style={[styles.gardenShareTxt, { color: c.primary }]}>庭をシェア</Text>
+            </Pressable>
+          </View>
+        </Card>
+      </View>
+
+      <SectionTitle>{period === 'week' ? '今週のふりかえり' : '今月のふりかえり'}</SectionTitle>
 
       <View style={styles.summaryRow}>
         <Card style={styles.summaryCard}>
@@ -261,7 +316,10 @@ export default function StatsScreen() {
           )}
         </Card>
         <Card style={styles.summaryCard}>
-          <Text style={[styles.summaryValue, { color: c.accent }]}>{moodLabel}</Text>
+          <View style={styles.summaryValueRow}>
+            {activeMood > 0 && <MoodGlyph value={activeMood} size={22} />}
+            <Text style={[styles.summaryValue, { color: c.accent }]}>{moodLabel}</Text>
+          </View>
           <Text style={[styles.summaryLabel, { color: c.textSecondary }]}>平均気分</Text>
           {activeMood > 0 && <MoodDots value={activeMood} />}
         </Card>
@@ -269,7 +327,7 @@ export default function StatsScreen() {
 
       {activeReport.topInsight && (
         <Card style={[styles.insightCard, { borderLeftColor: c.primary }]}>
-          <Text style={styles.insightIcon}>💡</Text>
+          <InkIcon name="clearSun" size={18} color={c.bloomCore} strokeWidth={1.7} />
           <View style={styles.insightBody}>
             <Text style={[styles.insightText, { color: c.text }]}>{activeReport.topInsight}</Text>
             <Pressable
@@ -292,7 +350,7 @@ export default function StatsScreen() {
             <Text style={[styles.habitPerformSub, { color: c.textSecondary }]}>
               {period === 'week' ? '今週' : '今月'}の達成率{' '}
               {Math.round(activeReport.bestHabit.weekRate * 100)}%
-              {activeReport.bestHabit.streak >= 2 ? `  🔥 ${activeReport.bestHabit.streak}日連続` : ''}
+              {activeReport.bestHabit.streak >= 2 ? `・${activeReport.bestHabit.streak}日連続` : ''}
             </Text>
           </View>
           <View style={[styles.badge, { backgroundColor: c.primarySoft }]}>
@@ -313,9 +371,13 @@ export default function StatsScreen() {
               <View style={styles.dayPatternRow}>
                 {activeReport.dayPatterns.slice(0, 7).map((dp) => (
                   <View key={dp.dayLabel} style={styles.dayCol}>
-                    <Text style={styles.dayMoodEmoji}>
-                      {dp.avgMood > 0 ? MOOD_EMOJI[Math.round(dp.avgMood)] : '·'}
-                    </Text>
+                    <View style={styles.dayMood}>
+                      {dp.avgMood > 0 ? (
+                        <MoodGlyph value={dp.avgMood} size={14} />
+                      ) : (
+                        <Text style={{ color: c.textTertiary, fontSize: 12 }}>·</Text>
+                      )}
+                    </View>
                     <View style={[styles.dayBarTrack, { backgroundColor: c.cardPressed }]}>
                       <View
                         style={[
@@ -338,12 +400,12 @@ export default function StatsScreen() {
 
           {activeReport.moodHabitCorrelation || activeReport.lowMoodDayWarning ? (
             <Card style={styles.correlationCard}>
-              <Text style={[styles.analysisTitle, { color: c.text }]}>AIが発見したパターン</Text>
+              <Text style={[styles.analysisTitle, { color: c.text }]}>見つかったパターン</Text>
               {activeReport.moodHabitCorrelation && (
                 <Pressable
                   style={styles.correlationRow}
                   onPress={() => setShareInsight(activeReport.moodHabitCorrelation!)}>
-                  <Text style={styles.corrIcon}>📈</Text>
+                  <Ionicons name="trending-up" size={15} color={c.primary} style={styles.corrIcon} />
                   <Text style={[styles.corrText, { color: c.text }]}>
                     {activeReport.moodHabitCorrelation}
                   </Text>
@@ -354,7 +416,7 @@ export default function StatsScreen() {
                 <Pressable
                   style={styles.correlationRow}
                   onPress={() => setShareInsight(activeReport.lowMoodDayWarning!)}>
-                  <Text style={styles.corrIcon}>⚠️</Text>
+                  <InkIcon name="drizzle" size={15} color={c.moodScale[1]} strokeWidth={1.7} />
                   <Text style={[styles.corrText, { color: c.text }]}>
                     {activeReport.lowMoodDayWarning}
                   </Text>
@@ -364,7 +426,7 @@ export default function StatsScreen() {
             </Card>
           ) : (
             <Card>
-              <Text style={[styles.analysisTitle, { color: c.text }]}>AIが発見したパターン</Text>
+              <Text style={[styles.analysisTitle, { color: c.text }]}>見つかったパターン</Text>
               <Text style={[styles.noDataText, { color: c.textSecondary }]}>
                 気分と習慣を2週間以上記録すると、あなただけのパターンが見えてきます。
               </Text>
@@ -416,14 +478,16 @@ export default function StatsScreen() {
             </View>
           </Card>
 
-          <SectionTitle>気分の移り変わり</SectionTitle>
+          <SectionTitle>空模様のうつろい</SectionTitle>
           <Card>
             <View style={styles.moodRow}>
               {week.map((key) => (
                 <View key={key} style={styles.moodCol}>
-                  <Text style={styles.moodEmoji}>
-                    {moods[key] ? MOOD_EMOJI[moods[key]] : '·'}
-                  </Text>
+                  {moods[key] ? (
+                    <MoodGlyph value={moods[key]} size={22} />
+                  ) : (
+                    <Text style={{ color: c.textTertiary, fontSize: 16 }}>·</Text>
+                  )}
                   <Text style={[styles.chartLabel, { color: c.textSecondary }]}>
                     {weekdayLabel(key)}
                   </Text>
@@ -456,15 +520,17 @@ export default function StatsScreen() {
             </View>
           </Card>
 
-          <SectionTitle>気分の移り変わり（30日）</SectionTitle>
+          <SectionTitle>空模様のうつろい（30日）</SectionTitle>
           <Card>
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.moodRow30}>
                 {month.map((key) => (
                   <View key={key} style={styles.moodCol30}>
-                    <Text style={styles.moodEmoji30}>
-                      {moods[key] ? MOOD_EMOJI[moods[key]] : '·'}
-                    </Text>
+                    {moods[key] ? (
+                      <MoodGlyph value={moods[key]} size={15} />
+                    ) : (
+                      <Text style={{ color: c.textTertiary, fontSize: 12 }}>·</Text>
+                    )}
                   </View>
                 ))}
               </View>
@@ -475,15 +541,26 @@ export default function StatsScreen() {
 
       {/* 年間レポート */}
       <SectionTitle>年間レポート</SectionTitle>
-      <Pressable
-        onPress={onAnnualReport}
-        style={styles.annualBtn}>
-        <Text style={styles.annualEmoji}>🎊</Text>
-        <View style={styles.annualBody}>
-          <Text style={styles.annualTitle}>{new Date().getFullYear()}年のふりかえり</Text>
-          <Text style={styles.annualSub}>Wrapped スタイルで確認する →</Text>
-        </View>
-      </Pressable>
+      <PressableScale onPress={onAnnualReport} style={Shadows.raised}>
+        <LinearGradient
+          colors={c.gradientWarm}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.annualBtn}>
+          <Bloom
+            size={40}
+            seedKey={`annual-${new Date().getFullYear()}`}
+            petals={9}
+            color="#F2E7CF"
+            coreColor="#E3B54F"
+          />
+          <View style={styles.annualBody}>
+            <Text style={styles.annualTitle}>{new Date().getFullYear()}年のふりかえり</Text>
+            <Text style={styles.annualSub}>一年の庭を眺める</Text>
+          </View>
+          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.8)" />
+        </LinearGradient>
+      </PressableScale>
         </>
       )}
 
@@ -511,9 +588,22 @@ const styles = StyleSheet.create({
   toggleBtn: { flex: 1, alignItems: 'center', paddingVertical: 8, borderRadius: Radius.sm },
   toggleText: { fontSize: 14, fontWeight: '700' },
 
+  gardenCard: { paddingBottom: Spacing.sm },
+  gardenFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: Spacing.sm,
+    gap: Spacing.sm,
+  },
+  gardenHint: { fontSize: 10.5, flex: 1, lineHeight: 15 },
+  gardenShareBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  gardenShareTxt: { fontSize: 12, fontWeight: '700' },
+
   summaryRow: { flexDirection: 'row', gap: Spacing.sm },
   summaryCard: { flex: 1, alignItems: 'center', gap: Spacing.xs },
-  summaryValue: { fontSize: 26, fontWeight: '800' },
+  summaryValueRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  summaryValue: { fontSize: 25, fontFamily: Fonts.display, letterSpacing: 0.5 },
   summaryLabel: { fontSize: 12 },
   summaryRate: { fontSize: 11 },
   moodDots: { flexDirection: 'row', gap: 3, marginTop: 2 },
@@ -526,7 +616,6 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     borderLeftWidth: 3,
   },
-  insightIcon: { fontSize: 16 },
   insightBody: { flex: 1, gap: 6 },
   insightText: { fontSize: 13, lineHeight: 20 },
   insightShareBtn: { flexDirection: 'row', alignItems: 'center', gap: 4, alignSelf: 'flex-start' },
@@ -567,7 +656,7 @@ const styles = StyleSheet.create({
   analysisTitle: { fontSize: 13, fontWeight: '700', marginBottom: Spacing.sm },
   dayPatternRow: { flexDirection: 'row', justifyContent: 'space-between', height: 100 },
   dayCol: { alignItems: 'center', flex: 1, gap: Spacing.xs },
-  dayMoodEmoji: { fontSize: 14 },
+  dayMood: { height: 16, alignItems: 'center', justifyContent: 'center' },
   dayBarTrack: { flex: 1, width: 14, borderRadius: 7, overflow: 'hidden', justifyContent: 'flex-end' },
   dayBarFill: { width: '100%', borderRadius: 7 },
   dayLabel: { fontSize: 11 },
@@ -579,7 +668,7 @@ const styles = StyleSheet.create({
     gap: Spacing.sm,
     marginTop: Spacing.xs,
   },
-  corrIcon: { fontSize: 14 },
+  corrIcon: { marginTop: 2 },
   corrText: { flex: 1, fontSize: 13, lineHeight: 20 },
   noDataText: { fontSize: 13, lineHeight: 20, marginTop: Spacing.xs },
 
@@ -590,7 +679,6 @@ const styles = StyleSheet.create({
   chartLabel: { fontSize: 11 },
   moodRow: { flexDirection: 'row', justifyContent: 'space-between' },
   moodCol: { alignItems: 'center', flex: 1, gap: Spacing.xs },
-  moodEmoji: { fontSize: 22 },
 
   weekBreakRow: { flexDirection: 'row', justifyContent: 'space-around', height: 130 },
   weekBreakCol: { alignItems: 'center', flex: 1, gap: Spacing.xs },
@@ -600,19 +688,16 @@ const styles = StyleSheet.create({
   wbRate: { fontSize: 12, fontWeight: '700' },
 
   moodRow30: { flexDirection: 'row', gap: 3, paddingVertical: 4 },
-  moodCol30: { alignItems: 'center', width: 20 },
-  moodEmoji30: { fontSize: 14 },
+  moodCol30: { alignItems: 'center', width: 20, height: 18, justifyContent: 'center' },
 
   // 月次ゲート
   monthGate: {
     alignItems: 'center',
     padding: Spacing.xl,
     borderRadius: Radius.md,
-    borderWidth: 1,
     gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  gateEmoji: { fontSize: 40 },
   gateTitle: { fontSize: 18, fontWeight: '800' },
   gateSub: { fontSize: 13, textAlign: 'center', lineHeight: 19 },
   gateAdBtn: {
@@ -638,11 +723,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: Spacing.xl,
     borderRadius: Radius.md,
-    borderWidth: 1,
     gap: Spacing.sm,
     marginBottom: Spacing.md,
   },
-  emptyEmoji: { fontSize: 36 },
   emptyTitle: { fontSize: 16, fontWeight: '800' },
   emptySub: { fontSize: 13, textAlign: 'center', lineHeight: 19 },
   emptyBtn: {
@@ -660,9 +743,7 @@ const styles = StyleSheet.create({
     gap: Spacing.md,
     padding: Spacing.md,
     borderRadius: Radius.md,
-    backgroundColor: '#3E8E75',
   },
-  annualEmoji: { fontSize: 28 },
   annualBody: { flex: 1 },
   annualTitle: { color: '#fff', fontSize: 15, fontWeight: '800' },
   annualSub: { color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },

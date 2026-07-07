@@ -47,7 +47,7 @@ export async function initNotifications(): Promise<void> {
   await Notifications.setNotificationCategoryAsync(HABIT_CATEGORY, [
     {
       identifier: NOTIF_ACTION_COMPLETE,
-      buttonTitle: '✅ 達成',
+      buttonTitle: '達成',
       options: { opensAppToForeground: true },
     },
     {
@@ -110,7 +110,7 @@ export async function scheduleMoodReminder(time: string): Promise<void> {
     identifier: MOOD_NOTIF_ID,
     content: {
       title: '今日の気分は？',
-      body: '毎日の記録がパターン発見につながります 📊',
+      body: '記録すると、今日の一輪が咲きます',
       data: { type: 'mood' },
       ...(Platform.OS === 'android' ? { android: { channelId: 'mood-reminders' } } : {}),
     },

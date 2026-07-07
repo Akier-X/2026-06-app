@@ -48,3 +48,9 @@ example
 # user feedback exports (may contain personal data)
 feedback-export/
 server/data/
+
+# IDE
+.idea/
+
+# 開発用スクリーンショット(再生成可能)
+screenshots/

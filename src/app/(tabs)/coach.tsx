@@ -14,13 +14,31 @@ import {
 
 import { Ionicons } from '@expo/vector-icons';
 
-import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import Bloom from '@/components/art/Bloom';
+import { PressableScale } from '@/components/ui';
+import { Fonts, Radius, Shadows, Spacing, useThemeColors } from '@/constants/theme';
 import { sendToCoachStreaming } from '@/lib/coach';
 import { isModelDownloaded, isNativeSupported, loadModel } from '@/lib/llm';
 import { newId, useAppStore } from '@/store/useAppStore';
 import type { ChatMessage } from '@/types';
 
 type LLMStatus = 'checking' | 'not-downloaded' | 'loading' | 'ready' | 'unavailable';
+
+const QUICK_PROMPTS = [
+  '今日はやる気が出ない…',
+  '習慣を続けるコツは？',
+  '最近ちょっと疲れてる',
+  '今週がんばったこと聞いて！',
+];
+
+function CoachAvatar() {
+  const c = useThemeColors();
+  return (
+    <View style={[styles.avatar, { backgroundColor: c.primarySoft }]}>
+      <Bloom size={24} seedKey="kokoro-coach" petals={6} color={c.primary} coreColor={c.bloomCore} />
+    </View>
+  );
+}
 
 export default function CoachScreen() {
   const c = useThemeColors();
@@ -56,8 +74,8 @@ export default function CoachScreen() {
     })();
   }, []);
 
-  const send = async () => {
-    const text = input.trim();
+  const send = async (textOverride?: string) => {
+    const text = (textOverride ?? input).trim();
     if (!text || sending) return;
 
     if (!consumeCoachMessage()) {
@@ -107,8 +125,9 @@ export default function CoachScreen() {
   const statusBadge = () => {
     if (llmStatus === 'ready') {
       return (
-        <View style={[styles.badge, { backgroundColor: '#1A6650' }]}>
-          <Text style={styles.badgeText}>🧠 AIコーチ（LLM）</Text>
+        <View style={[styles.badge, { backgroundColor: c.primarySoft }]}>
+          <View style={[styles.badgeDot, { backgroundColor: c.success }]} />
+          <Text style={[styles.badgeText, { color: c.primaryDark }]}>強化AIコーチ 稼働中</Text>
         </View>
       );
     }
@@ -127,12 +146,37 @@ export default function CoachScreen() {
           onPress={() => router.push('/(tabs)/settings')}
         >
           <Text style={[styles.badgeText, { color: c.textSecondary }]}>
-            💡 設定からLLMをDLすると返答が向上します
+            設定からLLMをDLすると返答が向上します
           </Text>
         </Pressable>
       );
     }
     return null;
+  };
+
+  const renderBubble = (item: { role: string; text: string }, streaming = false) => {
+    const mine = item.role === 'user';
+    if (mine) {
+      return (
+        <View style={[styles.bubble, styles.bubbleMine, { backgroundColor: c.primary }]}>
+          <Text style={styles.bubbleTextMine}>{item.text}</Text>
+        </View>
+      );
+    }
+    return (
+      <View style={styles.coachRow}>
+        <CoachAvatar />
+        <View style={[styles.bubble, styles.bubbleCoach, { backgroundColor: c.card }, Shadows.card]}>
+          <Text style={{ color: c.text, fontSize: 15, lineHeight: 22 }}>
+            {streaming && item.text.length === 0 ? (
+              <Text style={{ color: c.textTertiary }}>考え中...</Text>
+            ) : (
+              item.text
+            )}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -151,60 +195,55 @@ export default function CoachScreen() {
         onContentSizeChange={() => listRef.current?.scrollToEnd({ animated: false })}
         ListEmptyComponent={
           <View style={styles.empty}>
-            <Text style={styles.emptyEmoji}>🧘</Text>
-            <Text style={[styles.emptyTitle, { color: c.text }]}>AIコーチに相談しよう</Text>
+            <View style={[styles.emptyIconWrap, { backgroundColor: c.primarySoft }]}>
+              <Bloom size={58} seedKey="kokoro-coach" petals={6} color={c.primary} coreColor={c.bloomCore} />
+            </View>
+            <Text style={[styles.emptyTitle, { color: c.text }]}>ここロコーチに相談しよう</Text>
             <Text style={[styles.emptyBody, { color: c.textSecondary }]}>
-              「やる気が出ない」「続けるコツは?」など、なんでも話しかけてください。
+              続かない日も、落ち込む日も大丈夫。{'\n'}なんでも話しかけてください。
             </Text>
+            <View style={styles.promptChips}>
+              {QUICK_PROMPTS.map((p) => (
+                <PressableScale
+                  key={p}
+                  onPress={() => send(p)}
+                  style={[styles.promptChip, { backgroundColor: c.card, borderColor: c.border }]}>
+                  <Text style={[styles.promptChipText, { color: c.primary }]}>{p}</Text>
+                </PressableScale>
+              ))}
+            </View>
           </View>
         }
-        renderItem={({ item }) => {
-          const mine = item.role === 'user';
-          return (
-            <View
-              style={[
-                styles.bubble,
-                mine
-                  ? { backgroundColor: c.primary, alignSelf: 'flex-end' }
-                  : { backgroundColor: c.card, alignSelf: 'flex-start' },
-              ]}>
-              <Text style={{ color: mine ? '#fff' : c.text, fontSize: 15, lineHeight: 22 }}>
-                {item.text}
-              </Text>
-            </View>
-          );
-        }}
+        renderItem={({ item }) => renderBubble(item)}
         ListFooterComponent={
-          streamingText !== null ? (
-            <View style={[styles.bubble, { backgroundColor: c.card, alignSelf: 'flex-start' }]}>
-              <Text style={{ color: c.text, fontSize: 15, lineHeight: 22 }}>
-                {streamingText.length === 0 ? (
-                  <Text style={{ color: c.textSecondary }}>考え中...</Text>
-                ) : streamingText}
-              </Text>
-            </View>
-          ) : null
+          streamingText !== null
+            ? renderBubble({ role: 'assistant', text: streamingText }, true)
+            : null
         }
       />
 
       {!isPremium && (
-        <Text style={[styles.quota, { color: c.textSecondary }]}>
-          今日の残り回数: {left}回（プレミアムで無制限）
-        </Text>
+        <Pressable onPress={() => router.push('/paywall')} style={styles.quotaWrap}>
+          <View style={[styles.quotaPill, { backgroundColor: c.card, borderColor: c.border }]}>
+            <Text style={[styles.quotaText, { color: c.textSecondary }]}>
+              今日あと{left}回 · <Text style={{ color: c.primary, fontWeight: '700' }}>プレミアムで無制限</Text>
+            </Text>
+          </View>
+        </Pressable>
       )}
 
-      <View style={[styles.inputRow, { backgroundColor: c.card, borderColor: c.border }]}>
+      <View style={[styles.inputRow, { backgroundColor: c.card }, Shadows.card]}>
         <TextInput
           value={input}
           onChangeText={setInput}
           placeholder="メッセージを入力..."
-          placeholderTextColor={c.textSecondary}
+          placeholderTextColor={c.textTertiary}
           multiline
           style={[styles.input, { color: c.text }]}
-          onSubmitEditing={send}
+          onSubmitEditing={() => send()}
         />
         <Pressable
-          onPress={send}
+          onPress={() => send()}
           disabled={sending || !input.trim()}
           style={[
             styles.sendButton,
@@ -233,25 +272,79 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
     marginBottom: 2,
   },
-  badgeText: { color: '#fff', fontSize: 12, fontWeight: '600' },
+  badgeDot: { width: 7, height: 7, borderRadius: 4 },
+  badgeText: { fontSize: 12, fontWeight: '600' },
   list: { padding: Spacing.md, gap: Spacing.sm, flexGrow: 1 },
+
   empty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: Spacing.sm },
-  emptyEmoji: { fontSize: 48 },
-  emptyTitle: { fontSize: 18, fontWeight: '800' },
+  emptyIconWrap: {
+    width: 76,
+    height: 76,
+    borderRadius: 38,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  emptyTitle: { fontSize: 18, fontFamily: Fonts.display, letterSpacing: 1, marginTop: Spacing.xs },
   emptyBody: { fontSize: 14, lineHeight: 21, textAlign: 'center' },
+  promptChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: Spacing.sm,
+    marginTop: Spacing.md,
+  },
+  promptChip: {
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  promptChipText: { fontSize: 13, fontWeight: '600' },
+
+  coachRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: Spacing.sm,
+    maxWidth: '88%',
+    alignSelf: 'flex-start',
+  },
+  avatar: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   bubble: {
-    maxWidth: '82%',
     borderRadius: Radius.lg,
     paddingHorizontal: Spacing.md,
     paddingVertical: 10,
   },
-  quota: { fontSize: 12, textAlign: 'center', marginBottom: Spacing.xs },
+  bubbleMine: {
+    maxWidth: '82%',
+    alignSelf: 'flex-end',
+    borderBottomRightRadius: 6,
+  },
+  bubbleCoach: {
+    flexShrink: 1,
+    borderBottomLeftRadius: 6,
+  },
+  bubbleTextMine: { color: '#fff', fontSize: 15, lineHeight: 22 },
+
+  quotaWrap: { alignItems: 'center', marginBottom: Spacing.xs },
+  quotaPill: {
+    borderWidth: 1,
+    borderRadius: Radius.full,
+    paddingHorizontal: 12,
+    paddingVertical: 5,
+  },
+  quotaText: { fontSize: 12 },
+
   inputRow: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     margin: Spacing.md,
     marginTop: 0,
-    borderWidth: 1,
     borderRadius: Radius.lg,
     paddingLeft: Spacing.md,
     paddingRight: 6,
@@ -260,9 +353,9 @@ const styles = StyleSheet.create({
   },
   input: { flex: 1, fontSize: 15, maxHeight: 120, paddingTop: 8, paddingBottom: 8 },
   sendButton: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     alignItems: 'center',
     justifyContent: 'center',
   },

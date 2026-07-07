@@ -158,7 +158,7 @@ export function generateWeeklyReport(
   } else if (worstHabit && worstHabit.weekRate < 0.3 && total >= 2) {
     topInsight = `${worstHabit.habitEmoji} ${worstHabit.habitName}の達成率が低めです。もう少し簡単な目標に変えてみませんか？`;
   } else if (bestHabit && bestHabit.streak >= 5) {
-    topInsight = `${bestHabit.habitEmoji} ${bestHabit.habitName}が${bestHabit.streak}日連続！この調子です 🔥`;
+    topInsight = `${bestHabit.habitEmoji} ${bestHabit.habitName}が${bestHabit.streak}日連続。この調子です`;
   }
 
   return {

@@ -1,3 +1,5 @@
+import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import { useState } from 'react';
 import {
@@ -12,8 +14,9 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-import { PrimaryButton } from '@/components/ui';
-import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import Bloom from '@/components/art/Bloom';
+import { PressableScale, PrimaryButton } from '@/components/ui';
+import { Fonts, Radius, Shadows, Spacing, useThemeColors } from '@/constants/theme';
 import { useAppStore } from '@/store/useAppStore';
 
 const GOALS = [
@@ -46,6 +49,14 @@ const SUGGESTED_HABITS: Record<string, { name: string; emoji: string }[]> = {
   ],
 };
 
+const VALUE_PROPS = [
+  { icon: 'checkmark-circle' as const, text: '1日10秒、タップするだけの習慣記録' },
+  { icon: 'sparkles' as const, text: 'AIが気分と行動のパターンを分析' },
+  { icon: 'chatbubble-ellipses' as const, text: '落ち込んだ日はAIコーチに相談' },
+];
+
+const TOTAL_STEPS = 3;
+
 export default function Onboarding() {
   const c = useThemeColors();
   const [step, setStep] = useState(0);
@@ -67,19 +78,89 @@ export default function Onboarding() {
     router.replace('/(tabs)');
   };
 
+  const OptionCard = ({
+    emoji,
+    label,
+    selected,
+    onPress,
+  }: {
+    emoji: string;
+    label: string;
+    selected: boolean;
+    onPress: () => void;
+  }) => (
+    <PressableScale
+      onPress={onPress}
+      style={[
+        styles.option,
+        { backgroundColor: c.card, borderColor: selected ? c.primary : 'transparent' },
+        Shadows.card,
+      ]}>
+      <View style={[styles.optionEmojiWrap, { backgroundColor: selected ? c.primarySoft : c.cardPressed }]}>
+        <Text style={styles.optionEmoji}>{emoji}</Text>
+      </View>
+      <Text style={[styles.optionLabel, { color: c.text }]}>{label}</Text>
+      <Ionicons
+        name={selected ? 'checkmark-circle' : 'ellipse-outline'}
+        size={24}
+        color={selected ? c.primary : c.border}
+      />
+    </PressableScale>
+  );
+
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: c.background }]}>
       <KeyboardAvoidingView
         style={styles.flex}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-        <ScrollView contentContainerStyle={styles.content}>
+
+        {/* 進捗バー + 戻る */}
+        <View style={styles.topBar}>
+          {step > 0 ? (
+            <Pressable onPress={() => setStep(step - 1)} hitSlop={8} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={22} color={c.textSecondary} />
+            </Pressable>
+          ) : (
+            <View style={styles.backBtn} />
+          )}
+          <View style={styles.progressTrackWrap}>
+            <View style={[styles.progressTrack, { backgroundColor: c.cardPressed }]}>
+              <View
+                style={[
+                  styles.progressFill,
+                  { backgroundColor: c.primary, width: `${((step + 1) / TOTAL_STEPS) * 100}%` },
+                ]}
+              />
+            </View>
+          </View>
+          <View style={styles.backBtn} />
+        </View>
+
+        <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
           {step === 0 && (
             <View>
-              <Text style={[styles.hero, { color: c.primary }]}>🌱</Text>
-              <Text style={[styles.title, { color: c.text }]}>ココロコーチへようこそ</Text>
-              <Text style={[styles.body, { color: c.textSecondary }]}>
-                AIコーチと一緒に、小さな習慣を積み重ねて心と暮らしを整えるアプリです。
-              </Text>
+              <LinearGradient
+                colors={c.gradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={[styles.heroCircle, Shadows.raised]}>
+                <Bloom
+                  size={64}
+                  seedKey="kokoro-welcome"
+                  petals={7}
+                  color="#F2E7CF"
+                  coreColor="#E3B54F"
+                />
+              </LinearGradient>
+              <Text style={[styles.title, { color: c.text }]}>ココロコーチへ{'\n'}ようこそ</Text>
+              <View style={styles.valueProps}>
+                {VALUE_PROPS.map((v) => (
+                  <View key={v.text} style={styles.valueRow}>
+                    <Ionicons name={v.icon} size={18} color={c.primary} />
+                    <Text style={[styles.valueText, { color: c.textSecondary }]}>{v.text}</Text>
+                  </View>
+                ))}
+              </View>
               <Text style={[styles.label, { color: c.textSecondary }]}>
                 ニックネームを教えてください
               </Text>
@@ -87,10 +168,11 @@ export default function Onboarding() {
                 value={name}
                 onChangeText={setName}
                 placeholder="例: ゆうき"
-                placeholderTextColor={c.textSecondary}
+                placeholderTextColor={c.textTertiary}
                 style={[
                   styles.input,
-                  { backgroundColor: c.card, color: c.text, borderColor: c.border },
+                  { backgroundColor: c.card, color: c.text },
+                  Shadows.card,
                 ]}
               />
               <PrimaryButton label="次へ" onPress={() => setStep(1)} style={styles.button} />
@@ -103,24 +185,15 @@ export default function Onboarding() {
               <Text style={[styles.body, { color: c.textSecondary }]}>
                 AIコーチがあなたに合わせたアドバイスをします。
               </Text>
-              {GOALS.map((g) => {
-                const selected = goalId === g.id;
-                return (
-                  <Pressable
-                    key={g.id}
-                    onPress={() => setGoalId(g.id)}
-                    style={[
-                      styles.option,
-                      {
-                        backgroundColor: selected ? c.primarySoft : c.card,
-                        borderColor: selected ? c.primary : c.border,
-                      },
-                    ]}>
-                    <Text style={styles.optionEmoji}>{g.emoji}</Text>
-                    <Text style={[styles.optionLabel, { color: c.text }]}>{g.label}</Text>
-                  </Pressable>
-                );
-              })}
+              {GOALS.map((g) => (
+                <OptionCard
+                  key={g.id}
+                  emoji={g.emoji}
+                  label={g.label}
+                  selected={goalId === g.id}
+                  onPress={() => setGoalId(g.id)}
+                />
+              ))}
               <PrimaryButton
                 label="次へ"
                 onPress={() => setStep(2)}
@@ -136,32 +209,20 @@ export default function Onboarding() {
               <Text style={[styles.body, { color: c.textSecondary }]}>
                 あとから自由に追加・変更できます。
               </Text>
-              {suggestions.map((h, i) => {
-                const selected = selectedHabits.has(i);
-                return (
-                  <Pressable
-                    key={h.name}
-                    onPress={() => {
-                      const next = new Set(selectedHabits);
-                      if (selected) next.delete(i);
-                      else next.add(i);
-                      setSelectedHabits(next);
-                    }}
-                    style={[
-                      styles.option,
-                      {
-                        backgroundColor: selected ? c.primarySoft : c.card,
-                        borderColor: selected ? c.primary : c.border,
-                      },
-                    ]}>
-                    <Text style={styles.optionEmoji}>{h.emoji}</Text>
-                    <Text style={[styles.optionLabel, { color: c.text }]}>{h.name}</Text>
-                    <Text style={{ color: selected ? c.primary : c.textSecondary }}>
-                      {selected ? '✓' : ''}
-                    </Text>
-                  </Pressable>
-                );
-              })}
+              {suggestions.map((h, i) => (
+                <OptionCard
+                  key={h.name}
+                  emoji={h.emoji}
+                  label={h.name}
+                  selected={selectedHabits.has(i)}
+                  onPress={() => {
+                    const next = new Set(selectedHabits);
+                    if (next.has(i)) next.delete(i);
+                    else next.add(i);
+                    setSelectedHabits(next);
+                  }}
+                />
+              ))}
               <PrimaryButton label="はじめる" onPress={finish} style={styles.button} />
             </View>
           )}
@@ -174,18 +235,42 @@ export default function Onboarding() {
 const styles = StyleSheet.create({
   safe: { flex: 1 },
   flex: { flex: 1 },
-  content: { padding: Spacing.lg, paddingTop: Spacing.xl * 2 },
-  hero: { fontSize: 56, marginBottom: Spacing.md },
-  title: { fontSize: 26, fontWeight: '800', marginBottom: Spacing.sm },
+
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: Spacing.md,
+    paddingTop: Spacing.sm,
+  },
+  backBtn: { width: 32, height: 32, alignItems: 'center', justifyContent: 'center' },
+  progressTrackWrap: { flex: 1, paddingHorizontal: Spacing.sm },
+  progressTrack: { height: 6, borderRadius: 3, overflow: 'hidden' },
+  progressFill: { height: 6, borderRadius: 3 },
+
+  content: { padding: Spacing.lg, paddingTop: Spacing.xl },
+  heroCircle: {
+    width: 84,
+    height: 84,
+    borderRadius: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: Spacing.lg,
+  },
+  title: { fontSize: 26, fontFamily: Fonts.display, marginBottom: Spacing.sm, lineHeight: 38, letterSpacing: 0.5 },
   body: { fontSize: 15, lineHeight: 22, marginBottom: Spacing.lg },
+
+  valueProps: { gap: Spacing.sm, marginBottom: Spacing.xl, marginTop: Spacing.sm },
+  valueRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
+  valueText: { fontSize: 14, lineHeight: 20, flex: 1 },
+
   label: { fontSize: 13, fontWeight: '700', marginBottom: Spacing.sm },
   input: {
-    borderWidth: 1,
     borderRadius: Radius.md,
     paddingHorizontal: Spacing.md,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 16,
   },
+
   option: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -195,7 +280,15 @@ const styles = StyleSheet.create({
     marginBottom: Spacing.sm,
     gap: Spacing.md,
   },
-  optionEmoji: { fontSize: 24 },
-  optionLabel: { fontSize: 15, fontWeight: '600', flex: 1 },
+  optionEmojiWrap: {
+    width: 44,
+    height: 44,
+    borderRadius: 13,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  optionEmoji: { fontSize: 22 },
+  optionLabel: { fontSize: 15, fontWeight: '700', flex: 1 },
+
   button: { marginTop: Spacing.lg },
 });

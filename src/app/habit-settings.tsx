@@ -150,7 +150,7 @@ export default function HabitSettingsScreen() {
             <TimePicker value={reminderTime} onChange={setReminderTime} />
           </View>
           <Text style={[styles.hint, { color: c.textSecondary }]}>
-            [✅ 達成] ボタンで通知から直接記録できます
+            「達成」ボタンで通知から直接記録できます
           </Text>
         </>
       )}

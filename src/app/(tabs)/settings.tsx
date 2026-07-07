@@ -14,8 +14,11 @@ import {
 } from 'react-native';
 
 import AdBanner from '@/components/AdBanner';
+import InkIcon from '@/components/art/InkIcon';
+import { mixHex } from '@/components/art/seed';
+import TreeArt from '@/components/art/TreeArt';
 import { Card, SectionTitle } from '@/components/ui';
-import { Radius, Spacing, useThemeColors } from '@/constants/theme';
+import { Fonts, Radius, Spacing, useThemeColors } from '@/constants/theme';
 import { calcStreak, lastNDateKeys, todayKey } from '@/lib/dates';
 import {
   deleteModel,
@@ -36,22 +39,21 @@ import { FREE_DAILY_COACH_MESSAGES, FREE_HABIT_LIMIT, useAppStore } from '@/stor
 
 // ─── ここロコーチの木 レベルシステム ─────────────────────────────────────────
 const TREE_LEVELS = [
-  { min: 0,   max: 7,   emoji: '🌱', name: '芽生え' },
-  { min: 7,   max: 30,  emoji: '🌿', name: '成長中' },
-  { min: 30,  max: 60,  emoji: '🌳', name: '根づき' },
-  { min: 60,  max: 100, emoji: '🌸', name: '開花' },
+  { min: 0,   max: 7,   name: '芽生え' },
+  { min: 7,   max: 30,  name: '成長中' },
+  { min: 30,  max: 60,  name: '根づき' },
+  { min: 60,  max: 100, name: '開花' },
 ] as const;
 
 function getTreeInfo(totalDays: number) {
   if (totalDays >= 100) {
-    return { level: 5, emoji: '🌺', name: '満開', progress: 1, daysToNext: 0, isMaxLevel: true };
+    return { level: 5, name: '満開', progress: 1, daysToNext: 0, isMaxLevel: true };
   }
   for (let i = TREE_LEVELS.length - 1; i >= 0; i--) {
     const lv = TREE_LEVELS[i];
     if (totalDays >= lv.min) {
       return {
         level: i + 1,
-        emoji: lv.emoji,
         name: lv.name as string,
         progress: (totalDays - lv.min) / (lv.max - lv.min),
         daysToNext: lv.max - totalDays,
@@ -59,7 +61,7 @@ function getTreeInfo(totalDays: number) {
       };
     }
   }
-  return { level: 1, emoji: '🌱', name: '芽生え', progress: 0, daysToNext: 7, isMaxLevel: false };
+  return { level: 1, name: '芽生え', progress: 0, daysToNext: 7, isMaxLevel: false };
 }
 
 // ─── TimePicker ───────────────────────────────────────────────────────────────
@@ -195,10 +197,10 @@ export default function SettingsScreen() {
     try {
       await Share.share({
         message:
-          `ここロコーチで習慣管理を始めました！🌿\n` +
+          `ここロコーチで、毎日の記録が一輪の花になる習慣づくりを始めました。\n` +
           `招待コードを使うと7日間プレミアムが無料で試せます。\n\n` +
           `招待コード: ${referralCode}\n\n` +
-          `#ここロコーチ #習慣化`,
+          `#ここロコーチ #こころの庭 #習慣化`,
       });
     } catch { /* ignore */ }
   };
@@ -209,7 +211,7 @@ export default function SettingsScreen() {
       setReferralInput('');
       Alert.alert(
         '7日間プレミアム開始！',
-        'プレミアムが有効になりました。すべての機能をお楽しみください 🎉',
+        'プレミアムが有効になりました。すべての機能をお楽しみください。',
       );
     } else if (result === 'already_redeemed') {
       Alert.alert('このコードは使用済みです', '別のコードをお試しください。');
@@ -373,7 +375,14 @@ export default function SettingsScreen() {
       {/* ───── ここロコーチの木 ───── */}
       <Card style={treeStyles.card}>
         <View style={treeStyles.header}>
-          <Text style={treeStyles.treeEmoji}>{tree.emoji}</Text>
+          <TreeArt
+            size={84}
+            level={tree.level}
+            trunkColor={mixHex(c.text, c.background, 0.25)}
+            leafColor={c.primary}
+            bloomColor={c.moodScale[4]}
+            coreColor={c.bloomCore}
+          />
           <View style={{ flex: 1 }}>
             <View style={treeStyles.titleRow}>
               <Text style={[treeStyles.title, { color: c.text }]}>ここロコーチの木</Text>
@@ -394,7 +403,7 @@ export default function SettingsScreen() {
         </View>
         <Text style={[treeStyles.hint, { color: c.textSecondary }]}>
           {tree.isMaxLevel
-            ? '🎉 最高レベルに到達！素晴らしい継続力です'
+            ? '最高レベルに到達。素晴らしい継続力です'
             : `あと${tree.daysToNext}日でLv.${tree.level + 1}（${TREE_LEVELS[tree.level]?.name ?? '満開'}）`}
         </Text>
       </Card>
@@ -404,13 +413,13 @@ export default function SettingsScreen() {
         <Text style={[summaryStyles.heading, { color: c.text }]}>今週のサマリー</Text>
         <View style={summaryStyles.gridRow}>
           <View style={summaryStyles.cell}>
-            <Text style={summaryStyles.cellIcon}>🔥</Text>
+            <InkIcon name="ember" size={22} color={c.accent} strokeWidth={1.7} />
             <Text style={[summaryStyles.cellValue, { color: c.text }]}>{streak}日</Text>
             <Text style={[summaryStyles.cellLabel, { color: c.textSecondary }]}>継続中</Text>
           </View>
           <View style={[summaryStyles.divV, { backgroundColor: c.border }]} />
           <View style={summaryStyles.cell}>
-            <Text style={summaryStyles.cellIcon}>📈</Text>
+            <InkIcon name="flag" size={22} color={c.primary} strokeWidth={1.7} />
             <Text style={[summaryStyles.cellValue, { color: c.text }]}>
               {habitRate === null ? '--' : `${habitRate}%`}
             </Text>
@@ -420,7 +429,7 @@ export default function SettingsScreen() {
         <View style={[summaryStyles.divH, { backgroundColor: c.border }]} />
         <View style={summaryStyles.gridRow}>
           <View style={summaryStyles.cell}>
-            <Text style={summaryStyles.cellIcon}>😊</Text>
+            <InkIcon name="sunCloud" size={22} color={c.moodScale[3]} strokeWidth={1.7} />
             <Text style={[summaryStyles.cellValue, { color: c.text }]}>
               {avgMood === null ? '--' : avgMood.toFixed(1)}
             </Text>
@@ -428,7 +437,7 @@ export default function SettingsScreen() {
           </View>
           <View style={[summaryStyles.divV, { backgroundColor: c.border }]} />
           <View style={summaryStyles.cell}>
-            <Text style={summaryStyles.cellIcon}>💬</Text>
+            <InkIcon name="speechLeaf" size={22} color={c.primary} strokeWidth={1.7} />
             <Text style={[summaryStyles.cellValue, { color: c.text }]}>{aiChatCount}回</Text>
             <Text style={[summaryStyles.cellLabel, { color: c.textSecondary }]}>AI相談</Text>
           </View>
@@ -439,7 +448,7 @@ export default function SettingsScreen() {
       <SectionTitle>プラン</SectionTitle>
       {isPremium ? (
         <Card style={styles.planCard}>
-          <Text style={styles.planEmoji}>⭐️</Text>
+          <InkIcon name="clearSun" size={34} color={c.bloomCore} strokeWidth={1.6} />
           <Text style={[styles.planTitle, { color: c.text }]}>プレミアム会員</Text>
           <Text style={[styles.planBody, { color: c.textSecondary }]}>
             すべての機能をご利用いただけます。いつもありがとうございます！
@@ -450,7 +459,7 @@ export default function SettingsScreen() {
           <Text style={[planStyles.currentPlan, { color: c.textSecondary }]}>現在：無料プラン</Text>
           <View style={planStyles.usageItem}>
             <View style={planStyles.usageLabelRow}>
-              <Text style={[planStyles.usageLabel, { color: c.text }]}>💬 AIコーチ（本日）</Text>
+              <Text style={[planStyles.usageLabel, { color: c.text }]}>AIコーチ（本日）</Text>
               <Text
                 style={[
                   planStyles.usageCount,
@@ -477,7 +486,7 @@ export default function SettingsScreen() {
           </View>
           <View style={planStyles.usageItem}>
             <View style={planStyles.usageLabelRow}>
-              <Text style={[planStyles.usageLabel, { color: c.text }]}>📋 習慣数</Text>
+              <Text style={[planStyles.usageLabel, { color: c.text }]}>習慣数</Text>
               <Text
                 style={[
                   planStyles.usageCount,
@@ -515,7 +524,7 @@ export default function SettingsScreen() {
       <Card style={styles.notifSection}>
         <View style={styles.notifRow}>
           <View style={styles.notifLabel}>
-            <Text style={styles.notifEmoji}>😊</Text>
+            <InkIcon name="sunCloud" size={22} color={c.moodScale[3]} strokeWidth={1.7} />
             <View>
               <Text style={[styles.notifTitle, { color: c.text }]}>気分チェック通知</Text>
               <Text style={[styles.notifSub, { color: c.textSecondary }]}>
@@ -541,7 +550,7 @@ export default function SettingsScreen() {
       <Card style={[styles.notifSection, { marginTop: Spacing.sm }]}>
         <View style={styles.notifRow}>
           <View style={styles.notifLabel}>
-            <Text style={styles.notifEmoji}>📊</Text>
+            <InkIcon name="journal" size={22} color={c.primary} strokeWidth={1.7} />
             <View>
               <Text style={[styles.notifTitle, { color: c.text }]}>週次レポート通知</Text>
               <Text style={[styles.notifSub, { color: c.textSecondary }]}>
@@ -597,7 +606,7 @@ export default function SettingsScreen() {
           <SectionTitle>AIコーチを強化</SectionTitle>
           <Card style={llmStyles.card}>
             <View style={llmStyles.header}>
-              <Text style={llmStyles.emoji}>🧠</Text>
+              <Ionicons name="hardware-chip-outline" size={24} color={c.primary} style={{ marginTop: 2 }} />
               <View style={{ flex: 1 }}>
                 <Text style={[llmStyles.title, { color: c.text }]}>ローカルLLMモデル</Text>
                 <Text style={[llmStyles.sub, { color: c.textSecondary }]}>
@@ -693,7 +702,7 @@ export default function SettingsScreen() {
         )}
         {freeTrialUntil && (
           <Text style={[refStyles.trialBadge, { color: c.primary }]}>
-            🎉 トライアル中 〜 {new Date(freeTrialUntil).toLocaleDateString('ja-JP')}
+            トライアル中 〜 {new Date(freeTrialUntil).toLocaleDateString('ja-JP')}
           </Text>
         )}
       </Card>
@@ -741,7 +750,6 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   content: { padding: Spacing.md, paddingBottom: Spacing.xl },
   planCard: { alignItems: 'center', paddingVertical: Spacing.lg },
-  planEmoji: { fontSize: 36 },
   planTitle: { fontSize: 18, fontWeight: '800', marginTop: Spacing.sm },
   planBody: { fontSize: 13, textAlign: 'center', marginTop: Spacing.xs, lineHeight: 19 },
   row: {
@@ -760,7 +768,6 @@ const styles = StyleSheet.create({
     padding: Spacing.md,
   },
   notifLabel: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm, flex: 1 },
-  notifEmoji: { fontSize: 22 },
   notifTitle: { fontSize: 14, fontWeight: '700' },
   notifSub: { fontSize: 12, marginTop: 2 },
   timePickerContainer: {
@@ -777,9 +784,8 @@ const styles = StyleSheet.create({
 const treeStyles = StyleSheet.create({
   card: { marginBottom: Spacing.sm, gap: Spacing.sm },
   header: { flexDirection: 'row', alignItems: 'center', gap: Spacing.md },
-  treeEmoji: { fontSize: 44 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.sm },
-  title: { fontSize: 16, fontWeight: '800' },
+  title: { fontSize: 16, fontFamily: Fonts.display, letterSpacing: 0.5 },
   lvBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: Radius.full },
   lvText: { fontSize: 12, fontWeight: '800' },
   levelName: { fontSize: 13, marginTop: 2 },
@@ -801,8 +807,7 @@ const summaryStyles = StyleSheet.create({
   cell: { flex: 1, alignItems: 'center', paddingVertical: Spacing.md },
   divV: { width: 1 },
   divH: { height: 1 },
-  cellIcon: { fontSize: 20, marginBottom: 4 },
-  cellValue: { fontSize: 22, fontWeight: '800' },
+  cellValue: { fontSize: 21, fontFamily: Fonts.display, marginTop: 4, letterSpacing: 0.5 },
   cellLabel: { fontSize: 12, marginTop: 2 },
 });
 
@@ -839,7 +844,6 @@ const planStyles = StyleSheet.create({
 const llmStyles = StyleSheet.create({
   card: { gap: Spacing.sm },
   header: { flexDirection: 'row', gap: Spacing.sm, alignItems: 'flex-start' },
-  emoji: { fontSize: 28, marginTop: 2 },
   title: { fontSize: 14, fontWeight: '700' },
   sub: { fontSize: 12, lineHeight: 17, marginTop: 2 },
   progressWrap: { gap: 6 },

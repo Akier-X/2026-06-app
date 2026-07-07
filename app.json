@@ -60,6 +60,19 @@
     ],
     "experiments": {
       "typedRoutes": false
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "c1a3dd07-115f-47f0-9247-c5a2de71d40c"
+      }
+    },
+    "owner": "akierx1252",
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/c1a3dd07-115f-47f0-9247-c5a2de71d40c"
     }
   }
 }
