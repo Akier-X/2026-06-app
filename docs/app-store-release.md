@@ -75,27 +75,50 @@ railway variables set COACH_APP_TOKEN=<ランダム文字列> ADMIN_TOKEN=<別�
 
 広告ユニットは `src/constants/ads.ts` に管理。
 
-- アプリID・バナー・リワードは**本番ID設定済み**
-- インタースティシャルのみテストID → **リリース前に本番IDへ差し替えが必要**
+- アプリID・バナー・リワード・インタースティシャルの4つとも自アカウントのIDを**設定済み**
+- リリース前に AdMob コンソールで各ユニットが「有効」になっていることを確認するだけ
 
 詳細手順: `docs/admob-setup.md` 参照
+
+---
+
+## 5.5 ストア素材（生成済み）
+
+| 素材 | 場所 | 状態 |
+| --- | --- | --- |
+| アプリアイコン 1024×1024 | `assets/images/icon.png` | ✅ 生成アート版に刷新済み |
+| アダプティブアイコン（前景/背景/モノクロ） | `assets/images/android-icon-*.png` | ✅ |
+| スプラッシュ | `assets/images/splash-icon.png`（深緑背景 `#2B5540`） | ✅ |
+| Feature Graphic 1024×500 | `store-assets/feature-graphic.png` | ✅ |
+| スクリーンショット 9:16 ×5枚 | `store-assets/screenshot-*.png` | ✅ |
+| 掲載文ドラフト | `docs/store-listing.md` | ✅ 「一輪の花」コンセプトに更新済み |
+
+再生成コマンド:
+
+```bash
+node scripts/generate-icons.mjs                 # アイコン一式
+node scripts/generate-store-assets.mjs --shots  # Feature Graphic + スクショ(要: expo web :8090)
+```
 
 ---
 
 ## 6. ビルドと提出
 
 `eas.json` は作成済み（development / preview / production の3プロファイル）。
+EASプロジェクト紐付けも完了済み（projectId は `app.json` に設定済み・`akierx1252` でログイン確認済み）。
+
+> **⚠️ 現在の状態（2026-07-07 時点）**: `eas env:list --environment production` は空。
+> RevenueCat の Public API Key を作成して以下を登録するまで、本番ビルドでは課金がモック動作になる。
+> これが**リリース前に残っている唯一の必須のアカウント作業**（上記 §1〜2 の Play Console / RevenueCat 設定）。
 
 ```bash
-# EASプロジェクトを紐付け
-eas init
-
 # 環境変数を EAS に登録 (production環境)
 eas env:create --environment production --name EXPO_PUBLIC_RC_ANDROID_KEY --value goog_xxxx
+# サーバーを使う場合のみ(任意):
 eas env:create --environment production --name EXPO_PUBLIC_COACH_API_URL --value https://your-server.example.com
 eas env:create --environment production --name EXPO_PUBLIC_COACH_APP_TOKEN --value <サーバーと同じ値>
 
-# 本番ビルド
+# 本番ビルド（初回はキーストア生成の確認が出る → EAS管理を選択）
 eas build --platform android --profile production
 
 # Google Play に提出（内部テストトラック）
@@ -118,7 +141,7 @@ eas submit --platform android
 - [ ] ペイウォールに自動更新条件・価格・期間を明記（実装済み）
 - [ ] 利用規約 / プライバシーポリシーのリンクがペイウォールにある（実装済み、URL差し替え必須）
 - [ ] 復元ボタンがある（実装済み）
-- [ ] インタースティシャル広告IDを本番IDに差し替えた（`src/constants/ads.ts`）
+- [ ] AdMobコンソールで4ユニットすべて「有効」であることを確認した（IDは設定済み・`src/constants/ads.ts`）
 - [ ] コーチ応答について: 端末内ルールベースエンジンで生成され外部送信なし・危機的な入力には相談窓口を案内する旨を審査メモに記載（文面は `docs/store-listing.md`）
 - [ ] 医療アプリではないこと（診断・治療をしない）を審査メモに明記
 - [ ] デモアカウント不要（ログインなし設計）である旨を審査メモに記載

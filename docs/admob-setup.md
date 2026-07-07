@@ -2,7 +2,9 @@
 
 本番リリース前に、テストIDを実際のAdMob IDに差し替える手順です。
 
-> **現在の状態**: アプリID・バナー・リワードは本番ID設定済み。インタースティシャルのみテストID。
+> **現在の状態**: アプリID・バナー・リワード・インタースティシャルの4つすべてに
+> 自アカウント（`ca-app-pub-3076522403289369`）のIDを設定済み。
+> リリース前にAdMobコンソールで各ユニットが「有効」であることを確認するだけでよい。
 
 ---
 
@@ -55,14 +57,12 @@
 
 ```typescript
 export const ADS = {
-  ANDROID_APP_ID: 'ca-app-pub-3076522403289369~9043899462',   // ✅ 本番ID設定済み
-  BANNER_ANDROID: 'ca-app-pub-3076522403289369/7936002787',    // ✅ 本番ID設定済み
-  REWARDED_ANDROID: 'ca-app-pub-3076522403289369/1969360235',  // ✅ 本番ID設定済み
-  INTERSTITIAL_ANDROID: 'ca-app-pub-3940256099942544/1033173712', //　✅ 本番ID設定済み
+  ANDROID_APP_ID: 'ca-app-pub-3076522403289369~9043899462',      // ✅ 本番ID設定済み
+  BANNER_ANDROID: 'ca-app-pub-3076522403289369/7936002787',       // ✅ 本番ID設定済み
+  REWARDED_ANDROID: 'ca-app-pub-3076522403289369/1969360235',     // ✅ 本番ID設定済み
+  INTERSTITIAL_ANDROID: 'ca-app-pub-3076522403289369/9596568816', // ✅ 本番ID設定済み(要有効確認)
 } as const;
 ```
-
-インタースティシャルを作成したら最終行を差し替える。
 
 `app.json` の `androidAppId` も同じアプリIDが設定済み:
 

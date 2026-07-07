@@ -181,6 +181,20 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 
 ## 更新履歴
 
+### 2026-07-07（第11回アップデート）— リリース準備完了: ストア素材一式を生成アートで制作
+
+Google Play 提出に必要な素材・設定をすべて整備。**残るはユーザーのアカウント作業のみ**
+（①Play Console でアプリ・サブスク商品作成 → ②RevenueCat 設定 → ③`eas env:create` でキー登録 → ④`eas build`/`eas submit`。詳細は `docs/app-store-release.md`）
+
+1. **`scripts/generate-icons.mjs` 新規** → 「今日の一輪」と同一アルゴリズムでアプリアイコン一式を生成。`assets/images/` の icon（1024）・Androidアダプティブ（前景/背景/モノクロ）・スプラッシュ・favicon を旧Expoデフォルトから差し替え
+2. **`scripts/generate-store-assets.mjs` 新規** → Feature Graphic（1024×500、明朝タイトル+庭）と Playストア用スクリーンショット5枚（1080×1920、9:16）を `store-assets/` に生成
+3. **`app.json`** → スプラッシュを深緑 `#2B5540`×白い一輪に、アダプティブ背景を生成り `#F7F2E7` に、通知色を松葉 `#3E7053` に統一
+4. **AdMob** → 4ユニットすべて自アカウントIDが設定済みであることを確認し、`ads.ts` の古い「テストID」コメントと `docs/admob-setup.md` の矛盾を解消
+5. **`docs/store-listing.md`** → 掲載文を「毎日の記録が、一輪の花になる」コンセプトに刷新。素材一覧・キャッチコピー案を追記
+6. **`docs/app-store-release.md`** → 素材セクション追加、EAS環境変数の現状（production 未登録=課金モック）と残作業を明記
+
+---
+
 ### 2026-07-07（第10回アップデート）— デザイン全面刷新「こころの庭」: 生成アート × 和の美意識
 
 絵文字だのみの「AIが作った風」UIを脱却し、SNSでシェアしたくなる芸術性を持たせる全面リデザイン
@@ -343,12 +357,12 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 | 空状態UI | ✅ |
 | レビュー依頼 | ✅（7日・30日マイルストーン） |
 | クラッシュ確認 | 未（実機テスト必要） |
-| インタースティシャル本番ID差し替え | 未（docs/admob-setup.md 参照） |
+| インタースティシャル本番ID差し替え | ✅（設定済み・AdMobコンソールで有効確認のみ） |
 | SNS共有機能（Tier1〜4） | ✅ |
 | 紹介コードシステム | ✅ |
 | ローカルLLMコーチ（llama.rn 1B） | ✅（EAS Build で検証要） |
 | EAS Build による実機テスト | 未（`docs/eas-build.md` 参照） |
-| Google Playストア素材 | 未（アイコン・スクショ・Feature Graphic） |
+| Google Playストア素材 | ✅（アイコン・スクショ×5・Feature Graphic → `store-assets/`） |
 
 ---
 
