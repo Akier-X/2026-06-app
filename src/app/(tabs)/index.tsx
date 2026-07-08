@@ -130,6 +130,7 @@ export default function TodayScreen() {
   const completions = useAppStore((s) => s.completions);
   const moods = useAppStore((s) => s.moods);
   const isPremium = useAppStore((s) => s.isPremium);
+  const bloomTheme = useAppStore((s) => s.bloomTheme);
   const seenMilestones = useAppStore((s) => s.seenMilestones);
   const toggleCompletion = useAppStore((s) => s.toggleCompletion);
   const markMilestoneSeen = useAppStore((s) => s.markMilestoneSeen);
@@ -188,7 +189,7 @@ export default function TodayScreen() {
 
   const onAddHabit = () => {
     if (!isPremium && activeHabits.length >= FREE_HABIT_LIMIT) {
-      router.push('/paywall');
+      router.push('/paywall?source=habit-limit');
     } else {
       router.push('/add-habit');
     }
@@ -246,6 +247,7 @@ export default function TodayScreen() {
               color={bloomColor}
               coreColor={c.bloomCore}
               progress={progress}
+              theme={bloomTheme}
             />
           </ProgressRing>
         </Animated.View>

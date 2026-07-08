@@ -79,7 +79,7 @@ export default function CoachScreen() {
     if (!text || sending) return;
 
     if (!consumeCoachMessage()) {
-      router.push('/paywall');
+      router.push('/paywall?source=coach-limit');
       return;
     }
 
@@ -223,7 +223,7 @@ export default function CoachScreen() {
       />
 
       {!isPremium && (
-        <Pressable onPress={() => router.push('/paywall')} style={styles.quotaWrap}>
+        <Pressable onPress={() => router.push('/paywall?source=coach-quota')} style={styles.quotaWrap}>
           <View style={[styles.quotaPill, { backgroundColor: c.card, borderColor: c.border }]}>
             <Text style={[styles.quotaText, { color: c.textSecondary }]}>
               今日あと{left}回 · <Text style={{ color: c.primary, fontWeight: '700' }}>プレミアムで無制限</Text>

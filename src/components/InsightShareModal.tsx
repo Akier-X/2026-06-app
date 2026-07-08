@@ -13,6 +13,7 @@ import { captureRef as captureViewRef } from 'react-native-view-shot';
 import { BloomGlyph } from '@/components/art/Bloom';
 import InkIcon from '@/components/art/InkIcon';
 import { Colors, Fonts } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { shareImageFromRef } from '@/lib/shareUtils';
 
 const { width: SW } = Dimensions.get('window');
@@ -35,6 +36,7 @@ export default function InsightShareModal({ insight, onClose }: Props) {
   if (!insight) return null;
 
   const handleShare = async () => {
+    track('share', { kind: 'insight' });
     const fallback = `${insight}\n\n#ここロコーチ #こころの庭 #自己分析`;
     await shareImageFromRef(
       () => captureViewRef(cardRef, { format: 'png', quality: 1.0 }),

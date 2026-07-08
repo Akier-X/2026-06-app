@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import Bloom from '@/components/art/Bloom';
 import { PressableScale, PrimaryButton } from '@/components/ui';
 import { Fonts, Radius, Shadows, Spacing, useThemeColors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { useAppStore } from '@/store/useAppStore';
 
 const GOALS = [
@@ -75,7 +76,10 @@ export default function Onboarding() {
     suggestions.forEach((h, i) => {
       if (selectedHabits.has(i)) addHabit(h.name, h.emoji);
     });
+    track('onboarding_done', { habits: selectedHabits.size });
     router.replace('/(tabs)');
+    // 意欲が最も高い初回設定直後に、一度だけ年額+無料体験を提案する
+    setTimeout(() => router.push('/paywall?source=onboarding'), 400);
   };
 
   const OptionCard = ({

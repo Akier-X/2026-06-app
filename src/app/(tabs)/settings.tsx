@@ -14,11 +14,13 @@ import {
 } from 'react-native';
 
 import AdBanner from '@/components/AdBanner';
+import Bloom, { BLOOM_THEMES, type BloomThemeId } from '@/components/art/Bloom';
 import InkIcon from '@/components/art/InkIcon';
 import { mixHex } from '@/components/art/seed';
 import TreeArt from '@/components/art/TreeArt';
 import { Card, SectionTitle } from '@/components/ui';
 import { Fonts, Radius, Spacing, useThemeColors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { calcStreak, lastNDateKeys, todayKey } from '@/lib/dates';
 import {
   deleteModel,
@@ -128,6 +130,8 @@ export default function SettingsScreen() {
   const coachUsage = useAppStore((s) => s.coachUsage);
   const storeMoodReminderTime = useAppStore((s) => s.setMoodReminderTime);
   const storeWeeklyNotification = useAppStore((s) => s.setWeeklyNotification);
+  const bloomTheme = useAppStore((s) => s.bloomTheme);
+  const setBloomTheme = useAppStore((s) => s.setBloomTheme);
 
   // ─── ここロコーチの木 ───
   const totalDaysWithData = Object.keys(completions).filter(
@@ -194,6 +198,7 @@ export default function SettingsScreen() {
   };
 
   const onShareReferral = async () => {
+    track('share', { kind: 'referral' });
     try {
       await Share.share({
         message:
@@ -208,6 +213,7 @@ export default function SettingsScreen() {
   const onRedeemCode = () => {
     const result = redeemReferralCode(referralInput);
     if (result === 'ok') {
+      track('trial_redeemed');
       setReferralInput('');
       Alert.alert(
         '7日間プレミアム開始！',
@@ -351,7 +357,7 @@ export default function SettingsScreen() {
   }) => (
     <Pressable
       onPress={() =>
-        isPremium ? router.push(targetRoute as never) : router.push('/paywall')
+        isPremium ? router.push(targetRoute as never) : router.push('/paywall?source=settings-row')
       }>
       <Card style={styles.row}>
         <Ionicons name={icon} size={20} color={c.primary} />
@@ -405,6 +411,62 @@ export default function SettingsScreen() {
           {tree.isMaxLevel
             ? '最高レベルに到達。素晴らしい継続力です'
             : `あと${tree.daysToNext}日でLv.${tree.level + 1}（${TREE_LEVELS[tree.level]?.name ?? '満開'}）`}
+        </Text>
+      </Card>
+
+      {/* ───── 花のテーマ（プレミアム特典） ───── */}
+      <Card style={themeStyles.card}>
+        <Text style={[themeStyles.heading, { color: c.text }]}>花のテーマ</Text>
+        <View style={themeStyles.row}>
+          {(Object.keys(BLOOM_THEMES) as BloomThemeId[]).map((id) => {
+            const locked = !isPremium && id !== 'standard';
+            const selected = bloomTheme === id;
+            return (
+              <Pressable
+                key={id}
+                onPress={() => {
+                  if (locked) {
+                    router.push('/paywall?source=bloom-theme');
+                    return;
+                  }
+                  setBloomTheme(id);
+                  track('bloom_theme_set', { theme: id });
+                }}
+                style={[
+                  themeStyles.option,
+                  {
+                    borderColor: selected ? c.primary : c.border,
+                    backgroundColor: selected ? c.primarySoft : 'transparent',
+                  },
+                ]}>
+                <View style={{ opacity: locked ? 0.45 : 1 }}>
+                  <Bloom
+                    size={46}
+                    seedKey="theme-preview"
+                    petals={8}
+                    color={c.moodScale[4]}
+                    coreColor={c.bloomCore}
+                    theme={id}
+                  />
+                </View>
+                <Text
+                  style={[
+                    themeStyles.optionLabel,
+                    { color: selected ? c.primary : c.textSecondary },
+                  ]}>
+                  {BLOOM_THEMES[id].label}
+                </Text>
+                {locked && (
+                  <View style={[themeStyles.lockBadge, { backgroundColor: c.cardPressed }]}>
+                    <Ionicons name="lock-closed" size={9} color={c.textTertiary} />
+                  </View>
+                )}
+              </Pressable>
+            );
+          })}
+        </View>
+        <Text style={[themeStyles.hint, { color: c.textTertiary }]}>
+          今日の一輪と庭の花が着せ替わります{!isPremium ? '（桜・菊・向日葵はプレミアム）' : ''}
         </Text>
       </Card>
 
@@ -511,7 +573,7 @@ export default function SettingsScreen() {
             </View>
           </View>
           <Pressable
-            onPress={() => router.push('/paywall')}
+            onPress={() => router.push('/paywall?source=settings-plan')}
             style={[planStyles.upgradeBtn, { backgroundColor: c.primary }]}>
             <Ionicons name="sparkles" size={15} color="#fff" />
             <Text style={planStyles.upgradeBtnText}>プレミアムで無制限にする</Text>
@@ -779,6 +841,33 @@ const styles = StyleSheet.create({
   },
   timePickerLabel: { fontSize: 12 },
   notifHint: { fontSize: 12, marginBottom: Spacing.md, lineHeight: 17 },
+});
+
+const themeStyles = StyleSheet.create({
+  card: { marginBottom: Spacing.sm, gap: Spacing.sm },
+  heading: { fontSize: 14, fontWeight: '700' },
+  row: { flexDirection: 'row', gap: Spacing.sm },
+  option: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1.5,
+    borderRadius: Radius.sm,
+    paddingVertical: Spacing.sm,
+    position: 'relative',
+  },
+  optionLabel: { fontSize: 11, fontWeight: '700' },
+  lockBadge: {
+    position: 'absolute',
+    top: 5,
+    right: 5,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  hint: { fontSize: 11, lineHeight: 15 },
 });
 
 const treeStyles = StyleSheet.create({

@@ -2,11 +2,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import type { BloomThemeId } from '@/components/art/Bloom';
 import { todayKey } from '@/lib/dates';
 import type { ChatMessage, Habit, MoodValue, UserProfile } from '@/types';
 
 export const FREE_HABIT_LIMIT = 3;
 export const FREE_DAILY_COACH_MESSAGES = 5;
+/** 無料ユーザーがリワード広告でコンテンツ解放できる回数(種類ごと・月あたり) */
+export const REWARDED_UNLOCKS_PER_MONTH = 3;
+
+type RewardedKind = 'report' | 'detail';
+
+function currentMonthKey(): string {
+  return todayKey().slice(0, 7); // YYYY-MM
+}
 
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -31,6 +40,10 @@ interface AppState {
   freeTrialUntil: string | null;
   /** このデバイスで使用済みの招待コード一覧 */
   redeemedCodes: string[];
+  /** 花の品種テーマ(standard以外はプレミアム特典) */
+  bloomTheme: BloomThemeId;
+  /** リワード広告による解放の月次利用回数 */
+  rewardedUnlocks: { month: string; report: number; detail: number };
 
   completeOnboarding: (name: string, goal: string) => void;
   addHabit: (name: string, emoji: string) => void;
@@ -53,6 +66,11 @@ interface AppState {
   redeemReferralCode: (code: string) => 'ok' | 'already_redeemed' | 'invalid';
   /** アプリ起動時にトライアル有効期限を確認し、切れていれば解除する */
   checkTrialExpiry: () => void;
+  setBloomTheme: (theme: BloomThemeId) => void;
+  /** 今月あと何回リワード広告で解放できるか */
+  rewardedUnlocksLeft: (kind: RewardedKind) => number;
+  /** リワード解放を1回消費する(視聴完了時に呼ぶ) */
+  recordRewardedUnlock: (kind: RewardedKind) => void;
   resetAll: () => void;
 }
 
@@ -68,6 +86,8 @@ const initialData = {
   referralCode: generateReferralCode(),
   freeTrialUntil: null as string | null,
   redeemedCodes: [] as string[],
+  bloomTheme: 'standard' as BloomThemeId,
+  rewardedUnlocks: { month: '', report: 0, detail: 0 },
 };
 
 export function newId(): string {
@@ -192,6 +212,24 @@ export const useAppStore = create<AppState>()(
           set({ isPremium: false, freeTrialUntil: null });
         }
       },
+
+      setBloomTheme: (theme) => set({ bloomTheme: theme }),
+
+      rewardedUnlocksLeft: (kind) => {
+        const s = get();
+        const used = s.rewardedUnlocks.month === currentMonthKey() ? s.rewardedUnlocks[kind] : 0;
+        return Math.max(0, REWARDED_UNLOCKS_PER_MONTH - used);
+      },
+
+      recordRewardedUnlock: (kind) =>
+        set((s) => {
+          const month = currentMonthKey();
+          const base =
+            s.rewardedUnlocks.month === month
+              ? s.rewardedUnlocks
+              : { month, report: 0, detail: 0 };
+          return { rewardedUnlocks: { ...base, month, [kind]: base[kind] + 1 } };
+        }),
 
       resetAll: () => set({ ...initialData, referralCode: get().referralCode }),
     }),

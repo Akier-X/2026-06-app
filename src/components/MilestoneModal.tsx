@@ -6,6 +6,7 @@ import { captureRef as captureViewRef } from 'react-native-view-shot';
 import Bloom from '@/components/art/Bloom';
 import InkIcon from '@/components/art/InkIcon';
 import { Fonts, Radius, Spacing, useThemeColors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { shareImageFromRef } from '@/lib/shareUtils';
 
 export interface MilestoneData {
@@ -77,6 +78,7 @@ export default function MilestoneModal({ milestone, onClose }: Props) {
   if (!config) return null;
 
   const handleShare = async () => {
+    track('share', { kind: 'milestone', days: milestone.days });
     const fallback =
       `「${milestone.habitName}」${milestone.days}日連続達成。\n` +
       `${config.message}\n\n#ここロコーチ #習慣化`;

@@ -12,12 +12,13 @@ import InkIcon, { MOOD_ICONS } from '@/components/art/InkIcon';
 import InsightShareModal from '@/components/InsightShareModal';
 import { Card, PressableScale, SectionTitle } from '@/components/ui';
 import { Fonts, Radius, Shadows, Spacing, useThemeColors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { lastNDateKeys, weekdayLabel } from '@/lib/dates';
 import { checkInterstitialAllowed, showInterstitialAd, showRewardedAd } from '@/lib/ads';
 import { generateMonthlyReport } from '@/lib/monthlyReport';
 import { generateWeeklyReport } from '@/lib/weeklyReport';
 import { shareImageFromRef } from '@/lib/shareUtils';
-import { useAppStore } from '@/store/useAppStore';
+import { REWARDED_UNLOCKS_PER_MONTH, useAppStore } from '@/store/useAppStore';
 
 type Period = 'week' | 'month';
 
@@ -49,7 +50,7 @@ function PremiumLock({ label }: { label: string }) {
   const c = useThemeColors();
   return (
     <Pressable
-      onPress={() => router.push('/paywall')}
+      onPress={() => router.push('/paywall?source=stats-lock')}
       style={[styles.lockOverlay, { backgroundColor: c.card + 'E8' }]}>
       <Ionicons name="lock-closed" size={20} color={c.primary} />
       <Text style={[styles.lockText, { color: c.text }]}>{label}</Text>
@@ -82,6 +83,9 @@ export default function StatsScreen() {
   const completions = useAppStore((s) => s.completions);
   const moods = useAppStore((s) => s.moods);
   const isPremium = useAppStore((s) => s.isPremium);
+  const bloomTheme = useAppStore((s) => s.bloomTheme);
+  const rewardedUnlocksLeft = useAppStore((s) => s.rewardedUnlocksLeft);
+  const recordRewardedUnlock = useAppStore((s) => s.recordRewardedUnlock);
 
   const [period, setPeriod] = useState<Period>('week');
   const [monthlyUnlocked, setMonthlyUnlocked] = useState(false);
@@ -110,10 +114,23 @@ export default function StatsScreen() {
   const hasEnoughData = activeDays >= minDays;
   const daysUntilAnalysis = Math.max(0, minDays - activeDays);
 
+  // リワード解放は月ごとに回数制限あり(プレミアムとの棲み分け)
+  const reportUnlocksLeft = rewardedUnlocksLeft('report');
+  const detailUnlocksLeft = rewardedUnlocksLeft('detail');
+
   const onWatchAd = () => {
+    if (reportUnlocksLeft <= 0) {
+      router.push('/paywall?source=stats-monthly-cap');
+      return;
+    }
     setLoadingAd(true);
     showRewardedAd({
-      onRewarded: () => { setMonthlyUnlocked(true); setLoadingAd(false); },
+      onRewarded: () => {
+        recordRewardedUnlock('report');
+        track('rewarded_unlock', { kind: 'report' });
+        setMonthlyUnlocked(true);
+        setLoadingAd(false);
+      },
       onFailed: () => {
         setLoadingAd(false);
         Alert.alert('広告を読み込めませんでした', '時間をおいて再度お試しください。');
@@ -122,9 +139,18 @@ export default function StatsScreen() {
   };
 
   const onWatchAdForDetail = () => {
+    if (detailUnlocksLeft <= 0) {
+      router.push('/paywall?source=stats-detail-cap');
+      return;
+    }
     setLoadingDetailAd(true);
     showRewardedAd({
-      onRewarded: () => { setDetailUnlocked(true); setLoadingDetailAd(false); },
+      onRewarded: () => {
+        recordRewardedUnlock('detail');
+        track('rewarded_unlock', { kind: 'detail' });
+        setDetailUnlocked(true);
+        setLoadingDetailAd(false);
+      },
       onFailed: () => {
         setLoadingDetailAd(false);
         Alert.alert('広告を読み込めませんでした', '時間をおいて再度お試しください。');
@@ -170,6 +196,7 @@ export default function StatsScreen() {
   const monthGarden = month.map(toGardenDay);
 
   const onShareGarden = async () => {
+    track('share', { kind: 'garden', period });
     await shareImageFromRef(
       () => captureViewRef(gardenRef, { format: 'png', quality: 1.0 }),
       `この一週間で咲いた花たち\n\n#ここロコーチ #こころの庭 #習慣化`,
@@ -194,15 +221,26 @@ export default function StatsScreen() {
           <Text style={[styles.gateSub, { color: c.textSecondary }]}>
             30日間のデータを深く分析します
           </Text>
-          <Pressable
-            onPress={onWatchAd}
-            disabled={loadingAd}
-            style={[styles.gateAdBtn, { backgroundColor: c.primary }]}>
-            <Text style={styles.gateAdBtnText}>
-              {loadingAd ? '読み込み中...' : '広告を見て無料で解放'}
+          {reportUnlocksLeft > 0 ? (
+            <>
+              <Pressable
+                onPress={onWatchAd}
+                disabled={loadingAd}
+                style={[styles.gateAdBtn, { backgroundColor: c.primary }]}>
+                <Text style={styles.gateAdBtnText}>
+                  {loadingAd ? '読み込み中...' : '広告を見て無料で解放'}
+                </Text>
+              </Pressable>
+              <Text style={[styles.gateQuota, { color: c.textTertiary }]}>
+                無料解放は今月あと{reportUnlocksLeft}回
+              </Text>
+            </>
+          ) : (
+            <Text style={[styles.gateQuota, { color: c.textSecondary }]}>
+              今月の無料解放({REWARDED_UNLOCKS_PER_MONTH}回)を使い切りました
             </Text>
-          </Pressable>
-          <Pressable onPress={() => router.push('/paywall')}>
+          )}
+          <Pressable onPress={() => router.push('/paywall?source=stats-monthly')}>
             <Text style={[styles.gateUpgrade, { color: c.primary }]}>
               プレミアムでいつでも見る →
             </Text>
@@ -283,11 +321,11 @@ export default function StatsScreen() {
       <View ref={gardenRef} collapsable={false}>
         <Card style={styles.gardenCard}>
           {period === 'week' ? (
-            <Garden days={weekGarden} height={96} />
+            <Garden days={weekGarden} height={96} theme={bloomTheme} />
           ) : (
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={{ width: monthGarden.length * 30 }}>
-                <Garden days={monthGarden} height={88} showLabels={false} />
+                <Garden days={monthGarden} height={88} showLabels={false} theme={bloomTheme} />
               </View>
             </ScrollView>
           )}
@@ -439,15 +477,26 @@ export default function StatsScreen() {
             <Text style={[styles.lockText, { color: c.text }]}>
               気分×習慣の相関分析、曜日パターンを確認できます
             </Text>
-            <Pressable
-              onPress={onWatchAdForDetail}
-              disabled={loadingDetailAd}
-              style={[styles.gateAdBtn, { backgroundColor: c.primary }]}>
-              <Text style={styles.gateAdBtnText}>
-                {loadingDetailAd ? '読み込み中...' : '広告を見て解放'}
+            {detailUnlocksLeft > 0 ? (
+              <>
+                <Pressable
+                  onPress={onWatchAdForDetail}
+                  disabled={loadingDetailAd}
+                  style={[styles.gateAdBtn, { backgroundColor: c.primary }]}>
+                  <Text style={styles.gateAdBtnText}>
+                    {loadingDetailAd ? '読み込み中...' : '広告を見て解放'}
+                  </Text>
+                </Pressable>
+                <Text style={[styles.gateQuota, { color: c.textTertiary }]}>
+                  無料解放は今月あと{detailUnlocksLeft}回
+                </Text>
+              </>
+            ) : (
+              <Text style={[styles.gateQuota, { color: c.textSecondary }]}>
+                今月の無料解放({REWARDED_UNLOCKS_PER_MONTH}回)を使い切りました
               </Text>
-            </Pressable>
-            <Pressable onPress={() => router.push('/paywall')}>
+            )}
+            <Pressable onPress={() => router.push('/paywall?source=stats-detail')}>
               <Text style={[styles.lockSub, { color: c.primary }]}>プレミアムにアップグレード →</Text>
             </Pressable>
           </View>
@@ -707,6 +756,7 @@ const styles = StyleSheet.create({
     marginTop: Spacing.sm,
   },
   gateAdBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  gateQuota: { fontSize: 11, marginTop: 4 },
   gateUpgrade: { fontSize: 13, fontWeight: '600', marginTop: Spacing.xs },
 
   // 初週進捗

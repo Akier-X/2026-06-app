@@ -14,6 +14,7 @@ import { captureRef as captureViewRef } from 'react-native-view-shot';
 import Bloom from '@/components/art/Bloom';
 import InkIcon, { MOOD_ICONS } from '@/components/art/InkIcon';
 import { Fonts } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { calcStreak } from '@/lib/dates';
 import { shareImageFromRef } from '@/lib/shareUtils';
 import { useAppStore } from '@/store/useAppStore';
@@ -251,6 +252,7 @@ export default function AnnualReportScreen() {
   }, [activeIndex]);
 
   const handleShare = async () => {
+    track('share', { kind: 'annual' });
     const fallback =
       `ここロコーチで${year}年の習慣を振り返りました。\n` +
       `達成回数: ${totalCompletions}回\n` +

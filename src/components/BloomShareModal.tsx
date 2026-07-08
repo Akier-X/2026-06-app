@@ -13,7 +13,9 @@ import { captureRef as captureViewRef } from 'react-native-view-shot';
 import { BloomGlyph } from '@/components/art/Bloom';
 import InkIcon, { MOOD_ICONS } from '@/components/art/InkIcon';
 import { Colors, Fonts } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import { shareImageFromRef } from '@/lib/shareUtils';
+import { useAppStore } from '@/store/useAppStore';
 import type { MoodValue } from '@/types';
 
 const { width: SW } = Dimensions.get('window');
@@ -56,6 +58,7 @@ export default function BloomShareModal({
   onClose: () => void;
 }) {
   const cardRef = useRef<View>(null);
+  const bloomTheme = useAppStore((s) => s.bloomTheme);
 
   if (!data) return null;
 
@@ -69,6 +72,7 @@ export default function BloomShareModal({
   const bloomSize = cardW * 0.66;
 
   const handleShare = async () => {
+    track('share', { kind: 'bloom' });
     const fallback =
       `今日の一輪が咲きました。\n` +
       `習慣 ${data.done}/${data.total}${data.streak > 0 ? ` ・ ${data.streak}日目` : ''}\n\n` +
@@ -112,6 +116,7 @@ export default function BloomShareModal({
                     color={bloomColor}
                     coreColor={P.bloomCore}
                     progress={data.total > 0 ? data.done / data.total : 0}
+                    theme={bloomTheme}
                   />
                 </Svg>
                 <Text style={styles.caption}>今日の一輪</Text>

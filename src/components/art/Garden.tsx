@@ -4,7 +4,7 @@ import Svg, { Line, Path } from 'react-native-svg';
 
 import { useThemeColors } from '@/constants/theme';
 
-import { BloomGlyph } from './Bloom';
+import { BloomGlyph, type BloomThemeId } from './Bloom';
 import { createRng, hashSeed, mixHex } from './seed';
 
 /**
@@ -55,6 +55,7 @@ function GardenSprout({
   coreColor,
   stemColor,
   grassColor,
+  theme,
 }: {
   day: GardenDay;
   width: number;
@@ -63,6 +64,7 @@ function GardenSprout({
   coreColor: string;
   stemColor: string;
   grassColor: string;
+  theme: BloomThemeId;
 }) {
   const rng = createRng(hashSeed(day.key + ':stem'));
   const cx = width / 2;
@@ -108,6 +110,7 @@ function GardenSprout({
         color={petalColor}
         coreColor={coreColor}
         progress={1}
+        theme={theme}
       />
     </Svg>
   );
@@ -120,10 +123,12 @@ export default function Garden({
   days,
   height = 92,
   showLabels = true,
+  theme = 'standard',
 }: {
   days: GardenDay[];
   height?: number;
   showLabels?: boolean;
+  theme?: BloomThemeId;
 }) {
   const c = useThemeColors();
   const stemColor = mixHex(c.primary, c.background, 0.15);
@@ -142,6 +147,7 @@ export default function Garden({
               coreColor={c.bloomCore}
               stemColor={stemColor}
               grassColor={grassColor}
+              theme={theme}
             />
           </View>
         ))}

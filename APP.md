@@ -181,6 +181,17 @@ AI習慣化・セルフケアコーチアプリ（Android / Expo React Native）
 
 ## 更新履歴
 
+### 2026-07-08（第12回アップデート）— 収益化強化: 転換ファネル4点セット
+
+売上構造の弱点(転換導線・広告と課金の食い合い・計測ゼロ)を修正
+
+1. **オンボーディング直後ペイウォール** → 初回設定完了の瞬間(意欲最大)に年額+7日無料体験を1回だけ提示(`source=onboarding`)
+2. **リワード解放を月3回に制限** → `useAppStore` に月次カウンタ(`rewardedUnlocks`)を永続化。月次レポート・詳細分析の広告解放に「今月あとN回」を表示し、使い切り後は広告ボタンを消してプレミアム誘導のみに(広告がプレミアムを食う構造を是正)
+3. **プレミアム特典「花のテーマ」** → `Bloom.tsx` に品種システム(標準/桜=切れ込み花びら/菊=多弁細弁/向日葵=大きな花芯)。設定にプレビュー付きピッカー、無料は標準のみでロック→`source=bloom-theme`。今日の一輪・シェアカード・庭すべてに反映。ペイウォール特典リストにも追加
+4. **最小計測基盤 `src/lib/analytics.ts`** → 端末内リングバッファ(500件)+サーバー設定時のみ送信。`paywall_view{source}`・`purchase_success{plan,source}`・`rewarded_unlock`・`share{kind}`・`trial_redeemed`・`onboarding_done`・`bloom_theme_set` を全導線に配線。ペイウォールの表示元は `?source=` で統一(habit-limit / coach-limit / stats-detail / settings-plan / bloom-theme など)
+
+---
+
 ### 2026-07-07（第11回アップデート）— リリース準備完了: ストア素材一式を生成アートで制作
 
 Google Play 提出に必要な素材・設定をすべて整備。**残るはユーザーのアカウント作業のみ**

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useEffect, useState } from 'react';
 import {
   Alert,
@@ -14,6 +14,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { PressableScale, PrimaryButton } from '@/components/ui';
 import { Radius, Shadows, Spacing, useThemeColors } from '@/constants/theme';
+import { track } from '@/lib/analytics';
 import {
   fetchPlans,
   purchasePlan,
@@ -25,6 +26,7 @@ import { useAppStore } from '@/store/useAppStore';
 const FEATURES = [
   { icon: 'infinite' as const, text: '習慣を無制限に登録', sub: '無料は3個まで' },
   { icon: 'chatbubble-ellipses' as const, text: 'AIコーチと無制限にチャット', sub: '無料は1日5回まで' },
+  { icon: 'flower' as const, text: '花のテーマを解放', sub: '桜・菊・向日葵 — 今日の一輪と庭が着せ替わる' },
   { icon: 'analytics' as const, text: '気分×習慣の相関分析', sub: 'AIがあなただけのパターンを発見' },
   { icon: 'calendar' as const, text: '曜日別パターン分析', sub: '過去4週間のデータを解析' },
   { icon: 'sparkles' as const, text: '今後の新機能をすべて先行解放', sub: 'アップデートのたびにさらに便利に' },
@@ -34,10 +36,17 @@ export default function PaywallScreen() {
   const c = useThemeColors();
   const insets = useSafeAreaInsets();
   const setPremium = useAppStore((s) => s.setPremium);
+  const { source } = useLocalSearchParams<{ source?: string }>();
+  const paywallSource = source ?? 'unknown';
 
   const [plans, setPlans] = useState<PlanOption[]>([]);
   const [selected, setSelected] = useState<string>('');
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    track('paywall_view', { source: paywallSource });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     fetchPlans()
@@ -57,6 +66,7 @@ export default function PaywallScreen() {
       const ok = await purchasePlan(plan);
       if (ok) {
         setPremium(true);
+        track('purchase_success', { plan: plan.period, source: paywallSource });
         Alert.alert('ようこそ!', 'プレミアムが有効になりました。');
         router.back();
       }
@@ -77,6 +87,7 @@ export default function PaywallScreen() {
       const restored = await restorePurchases();
       if (restored) {
         setPremium(true);
+        track('purchase_restore', { source: paywallSource });
         Alert.alert('復元しました', 'プレミアムが有効になりました。');
         router.back();
       } else {
